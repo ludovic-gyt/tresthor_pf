@@ -1,0 +1,42 @@
+---
+title: "DiagrammeR: mermaid diagram in Rmd"
+author: "Ludovic Guyot"
+date: '2022-08-11'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Simple mermaid diagram
+
+Ce document sert simplement à visualiser rapidement le diagramme présent dans le rapport de performance pendant sa construction.
+
+```{r}
+library(DiagrammeR)
+
+
+mermaid(
+  "
+graph TB
+A[Modèle Opale] -- inspire le --> J[Travaux du modélisateur];
+E[Modèle UK] -- inspire le --> J[Travaux du modélisateur];
+J[Modélisateur]-- tests économétriques --> B[Modèle Perle];
+B -- input --> D[Tresthor];
+M[Les comptes définitifs] -- sont fournis au -->H[Data scientist];
+O[Des indicateurs économiques] -- sont receuillis par le --> H;
+H -- retraitements --> C[Base de données];
+C -- input --> D;
+D --> F[Estimation];
+F --> K[Simulation];
+K --> G[Prévision];
+I[Prévisionniste] -- hypothèse de scénario --> G;
+L[Utilisateur] -- paramètre et exécute la  --> G
+G --> N[Représentations visuelles]
+    ",
+height = '100%',
+width = '100%'
+)
+
+```

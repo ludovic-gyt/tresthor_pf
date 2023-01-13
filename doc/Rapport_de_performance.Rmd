@@ -1,0 +1,1586 @@
+
+---
+title: "<b><br> Tresthor <br> <i> <font size='5'>Package R pour la prévision économique</i></font>  </b ><br> <br>  Rapport de performance de l'utilisation de Tresthor dans le cadre de l'économie Polynésienne"
+author: |
+  | Institut de la Statistique de la Polynésie française (ISPF)
+  | Par Ludovic Guyot 
+  | (stage 2ème année ENS de mai 2022 à août 2022)
+date: '2022-07-26'
+output :
+   html_document : 
+     number_sections: true
+     toc : yes
+     toc_float:
+      collapsed: no
+      smooth_scoll: no
+      
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = T,
+  eval = T,
+  warning = F,
+  message = F,
+  cache = F
+)
+```
+
+<div align="justify">
+
+
+
+<br>
+
+
+<i>Trois guides sont disponibles sur le site de la Direction Générale du trésor pour comprendre et utiliser le package `Tresthor` et un document de travail est également disponible pour comprendre la construction de la maquette `Opale` :
+
+- Le [guide de l'utilisateur](https://www.tresor.economie.gouv.fr/Content/other/Opale/manuel_tresthor.html) présente en détail l'ensemble des fonctionnalités du package.
+- Le [guide d'utilisation du modèle Opale](https://www.tresor.economie.gouv.fr/Content/other/Opale/manuel_opale_r.html) en R par tresthor.
+- Le [guide appliqué de prévision](https://www.tresor.economie.gouv.fr/Content/other/Opale/application_tresthor_modele_uk.html) par tresthor avec un modèle simplifié sur le Royaume-Uni.
+- Le [document de travail de la DG du Trésor : maquette de prévision Opale-2017](https://www.tresor.economie.gouv.fr/Articles/5fd5fc93-7068-4f7c-a846-2e55db951c62/files/a91e44aa-8109-49ef-b8e2-44d306ff9ca7)</i>
+
+Certaines explications de ce rapport proviennent de ces manuels et du document de travail. Ce rapport n'est pas exaustif, les 3 manuels et le document de travail complètent de façon significative notre étude.
+
+<br>
+
+---
+
+Accès à l'ensemble des codes et de la documentation :
+
+[GitLab de Ludovic Guyot](http://git/stat/ludovic)
+
+---
+
+
+
+# Introduction
+
+Ce travail de documentation retrace la mise en place de `Tresthor` dans le cadre de son implémentation dans le système d'information de l'ISPF. Dans ce contexte, l'objectif est de modéliser l'économie Polynésienne afin d'obtenir une prévision macro-économique robuste et parcimonieuse. Afin de réaliser une telle prévision, nous allons devoir retracer l'histoire économique de la Polynésie en définissant des spécification permettant de modéliser les comportements agrégés et en donnant au modèle la quantité optimale d'information pour ce faire. Pour alimenter le modèle, nous livrons à `Tresthor` un volume de données dans la limite des contraintes du système statistique Polynésien. Le modèle `TABLO`, modèle actuellement en place à l'ISPF traité sous excel, permet déjà de modéliser l'économie Polynésienne mais celui-ci est couteux en hypôthèse et est utilisé dans un cadre totalement comptable. Nous basons le modèle que nous allons créer sur le le modèle `Opale`. `Opale` est un système d'équations comptables et économétriques utilisé par la *Direction Générale du Trésor* afin de réaliser des prévisions macroéconomiques sur l’économie française à l’horizon de 1 à 2 ans. A noter que le modèle Opale est surtout utilisé dans les exercices de type post-mortem qui visent à expliquer les écarts entre une nouvelle prévision et la précédente ou entre une prévision et sa réalisation. 
+
+Le modèle `Opale` retrace l’équilibre offre-demande des biens et services des comptes nationaux trimestriels en volume en base 2010. Le modèle comprend une modélisation essentiellement comptable de l’offre, la prévision portant essentiellement sur les postes de la demande. Le modèle `Opale` comprend par ailleurs une modélisation complète de la boucle prix-salaires, qui relie les prix de demande aux prix d’offre, eux-mêmes dépendants des coûts de production. La qualité du modèle en prévision à un ou deux ans prime sur ses propriétés à long terme, le modèle pouvant donc s’affranchir de certaines contraintes. Le modèle `Opale` n’est pas utilisé pour construire un scénario de long terme ni pour réaliser des évaluations de politique économique. La prévision doit alors se fonder prioritairement sur une approche par la demande au contraire d'un modèle comme `Mesange` basé sur la demande. À l’inverse d’un modèle construit pour des scénarios de moyen terme et des évaluations de politique économique, le modèle `Opale` cherche à retracer de manière plus fine certaines informations de court terme prenant en compte des variables de cycle (la modélisation de l’investissement prend par exemple en compte l’impact du taux d’utilisation des capacités de production) et des variables expliquant la volatilité conjoncturelle (la température par exemple).
+
+Ce type de modèle permet d'appréhender l'économie de façon complexe sans nécessité un nombre d'hypothèses démesurés. Ainsi, la résolution du modèle n'est majoritairement pas basé sur la subjectivité du prévisionniste mais bien sur les données receuillies et les choix de spécifications des équations économétriques. Ce type de modèle, compact et souple d’utilisation, couplé à la mise à disposition en open source du package `Tresthor`, permet une utilisation accessible aux acteurs de la statistique en outre-mer. Même si les données disponible dans ce type de territoire ne permette pas d'avoir la profondeur d'analyse du modèle `Opale`, le package `Tresthor` permet en fait de traiter n'importe quel modèle du même type tant qu'il respecte les contraintes établies. `Tresthor` est en effet un package utilisable sous R, développé par la DG du Trésor, sur la base conceptuel de la maquette `Opale` et de l'objectif d'un tel modèle. Le package permet de créer des modèles économiques, de les résoudre pour effectuer des prévisions et de les analyser. Afin de prévoir, ce package estime les *coefficients économétriques* des équations de comportement avec la base de données fournie. Nous allons donc définir un modèle sur la base conceptuelle du modèle `Opale`, et nous allons l'utilisé avec les données de l'ISPF à travers le package `Tresthor` sur R.
+
+Alors que le modèle `Opale` a été nommée en référence au vertu de la pierre du nom (L’opale a la réputation d’accroître la clairvoyance et d’améliorer l’intuition), nous nommons la maquette appliquée à l'économie Polynésienne "Perle". La perle est une production phare de l'économie polynésienne, formé par superposition de couches concentriques de carbonate de calcium qui cristallise autour du corps étranger incorporé artificiellement dans l'huitre. Nous allons effectivement refaçonner le modèle `Opale` afin de l'adapter à l'économie Polynésienne dans l'objectif de donner du sens aux données. 
+
+## Diagramme récapitulatif des travaux
+
+Nous insérons ci-dessous un diagramme récapitulatif de l'ensemble des travaux :
+
+```{r Diagramme recapitulatif, echo = F}
+
+library(DiagrammeR)
+
+mermaid(
+  "
+graph TB
+A[Modèle Opale] -- inspire le --> J[Travaux du modélisateur];
+E[Modèle UK] -- inspire le --> J[Travaux du modélisateur];
+J[Modélisateur]-- tests économétriques --> B[Modèle Perle];
+B -- input --> D[Tresthor];
+M[Les comptes définitifs] -- sont fournis au -->H[Data scientist];
+O[Des indicateurs économiques] -- sont receuillis par le --> H;
+H -- retraitements --> C[Base de données];
+C -- input --> D;
+D --> F[Estimation];
+F --> K[Simulation];
+K --> G[Prévision];
+I[Prévisionniste] -- hypothèse de scénario --> G;
+L[Utilisateur] -- paramètre et exécute la  --> G
+G --> N[Représentations visuelles]
+    ",
+height = '100%',
+width = '100%'
+)
+
+```
+
+## Présentation du programme informatique
+
+Ci-dessous les étapes du programme, que nous détaillerons tout au long de ce rapport, telles qu'inscritent dans `Main.R`(code non exécuter dans ce document `.rmd`) :
+
+```{r main, eval = F}
+#Programme :
+
+##Paramètre utilisateur:
+
+date_debut_estim <- "2006-03-31"
+date_fin_estim <- "2018-12-31"
+date_debut_prev <- "2019-03-31"
+date_fin_prev   <- "2020-12-31" 
+
+##source
+Donnee_lissee <- F
+source("src/functions.R")
+source("src/definitions.R")
+source("src/extract.R")
+if (Donnee_lissee){
+  message("Les données trimestrialisées par interpolation linéaire seront utilisées")
+  source("src/donnees_alternatives.R")
+} else{message("Les données trimestrialisées par la méthode Denton-Cholette seront utilisées")}
+source("src/transform.R")
+source("src/tresthor.R")
+
+##Représentations visuelles
+
+source("src/tableau_croissance.R")
+source("src/contribution.R")
+source("src/simulation.R")
+
+##Tests économétriques
+
+source("src/test_économétrique.R")
+
+##Construction dictionnaire de variable
+
+source("src/dictionnaire.R")
+
+```
+
+Nous évoquerons les différents type d'agents pouvant intervenir sur le programme dans ce rapport. Nous différencions notamment les rôles suivants :
+
+* Data scientist : personne en charge de fournir la base de données complète trimestrialisée en volume chainés et corrigée des variations saisonnière et des jours ouvrés
+* Modélisateur : personne en charge de désigner le modèle et écrire les spécifications des équations économétriques
+* Prévisionniste : personne en charge de déterminer les hypothèses exogènes requises à l'exercice de prévision
+* Utilisateur : personne qui paramètre les réglages utilisateur et exécute le programme pour obtenir la prévision et les résultats qui y sont relatifs (Cette personne est en fait bien souvent le prévisionniste dans une utilisation courante)
+
+## Quelques termes
+
+Avant de commencer à présenter les travaux réalisés, noux expliquons brièvement de quoi est composé un modèle de type `Opale`.
+
+* Modèle : Un modèle est un système d'équations. Les équations servent à définir le comportement de l'économie. Ce type de modèle contient deux types d'équations : des équations comptables et des équations comportementales (économétriques). Les équations comptables servent à assurer l'équilibre comptable du modèle (par exemple : l'équilibre du PIB avec ses composantes calculées par le modèle). Les équations comportementales (économétriques) vont quant à elles définir les mécanismes et dynamiques de l'économie (par exemple la consommation des ménages dépend entre-autres du pouvoir d'achat). 
+
+* Variables *exogènes* : Il s'agit des variables à renseigner pour toutes les périodes. Le solveur les prend comme données et ne les modifie pas. Pour la prévision économique, il s'agit des variables que le prévisionniste peut moduler afin de refléter les hypothèses et jugements formulés pour orienter la prévision. 
+
+* Variables *endogènes* : Il s'agit des variables qui sont résolues par le modèle pour établir la prévision. Elle vont être calculées en fonctions des dynamiques du modèles, des variables *exogènes* et des coefficients.  
+
+* Coefficients : Dans le contexte du package, le terme de coefficient correspond aux *coefficients économétriques* des équations économétriques du modèle. Il est supposé que ceux-ci ne changent pas sur l'ensemble des observations, bien qu'il soit possible en théorie de renseigner manuellement des valeurs différentes selon les périodes.
+
+* Les équations de comportement (équations économétriques) : Comme nous l'avons vu, en plus des équations comptables existent des équations économétriques. Ces dernières ont pour but de définir un comportement spécifique en décrivant l'influence de variables explicatives sur une variable expliquée. A titre d'exemple, les modélisateurs de la maquette `Opale` se sont donné l'objectif d'être capable de retracer la crise de 2008. Ils souhaitent en effet pouvoir appréhender une telle crise si elle venait à se répéter. Or cette crise financière est avant tout causé par des comportements agrégés spécifique. L'objectif est donc de modéliser les comportement agrégés. 
+
+* Les *Modèles à Correction d'Erreur* (MCE) : Les équations sont spécifiées sous la forme de Modèle à Correction d’Erreur (MCE). Nous détaillerons la théorie sous-jacente à ces modèles dans le rapport dédié aux tests économétriques (`doc/Rapport_des_tests_econometriques.Rmd`). En bref, ces équations permettent d’une part d’expliciter des relations de long terme, en corrigeant l'erreur de la période passé [^n1], et d’autre part de définir les dynamiques de court terme. Les MCE sont un cadre statistique naturel pour traiter des séries pour la plupart non stationnaires. Une estimation par les MCO de séries non stationnaires serait fallacieuse. Les MCE permettent d'introduire des décalages temporels dans les relations entre agrégats macroéconomiques transformant des liaisons instantanées en diffusions dont les durées d’amortis excèdent l’horizon d’un cadrage annuel. 
+
+[^n1]: C'est en fait un abus de langage car un MCE consiste à corriger le résidu et non pas l'erreur
+
+Voici un exemple de modèle proposé par la *DG du Trésor* pour traiter l'économie de la Grande Bretagne (nous exposerons et détaillerons le modèle dédié à la Polynésie (modèle `Perle`) plus loin dans ce rapport) : 
+
+```{r show_model , echo = FALSE, comment=NA}
+cat(readLines("C:/Users/ludovicg/Documents/R/ludovic/input/UK_model.txt"), sep = '\n')
+```
+
+La confection du modèle dans le fichier `.txt` est en fait une étape à réaliser préablement au programme. En effet, le modèle permet de savoir quelles opérations sont à réaliser. Par exemple, il va être nécessaire de savoir à quelle categorie appartiennent chaque variable afin de définir ou non des hypothèses sur ces variables. En réalité, pendant la phase expérimental, la création du modèle et la programmation s'entremêlent car il s'agit de faire des allers-retours entre l'un et l'autre pour comprendre et améliorer le modèle. Dans ce rapport, nous incorporons le fichier `.txt` dans la partie `Tresthor` afin de maintenir la cohérence entre les parties.
+
+# Paramètre utilisateur
+
+La première étape que doit poursuivre l'utilisateur consiste à paramétrer la période d'estimation et de prévision :
+
+```{r paramétrage utilisateur}
+
+date_debut_estim <- "2006-03-31"
+date_fin_estim <- "2018-12-31"
+date_debut_prev <- "2019-03-31"
+date_fin_prev   <- "2020-12-31" 
+```
+
+Le programme `Main.R` peut ensuite être lancé dans son intégralité. Nous détaillons maintenant les différentes étapes de ce programme.
+
+Avant de débuter le travail d'analyse il s'agit de charger les packages et les fonctions nécessaires. Dans le fichier `src/functions.R` se trouve toutes les librairies à charger ainsi que les fonctions à définir. Le fichier `src/definitions.R` contient des variables définies en amont, notamment les horizons temporels.
+
+```{r installation}
+setwd("C:/Users/ludovicg/Documents/R/ludovic") #Pour pouvoir faire la connection je suis obligé de set wd à chaque fois, pq?
+
+# Nous ne détaillerons pas le code ici, se référer aux fichiers en question
+
+source("src/functions.R")
+source("src/definitions.R")
+```
+
+* Les dépendances du package `Tresthor`:
+  + `dplyr` et `Deriv`(seront chargés avec le package)
+  + `purrr`, `tidyr`, `stringr`, `ggplot2`
+  + `scales` , `splitstackshape`, `assertthat`,`stats`,`Matrix`,`cointReg`
+  + `Rcpp`, `RcppArmadillo`
+* Le package fonctionne sur R en version 4.0.2 ou ultérieure, et est compatible avec Microsoft Open R.
+
+# Collecte des données, trimestrialisation, et CVS/CJO (Partie à compléter avec Serge)
+
+Une partie des données est issue des comptes `eretes` à partir du fichier `input/dt_pib_tresthor.csv`. Cette partie comprend les postes de la demande (consommation, investissement, importation, exportation, variations de stock) et également les revenus salariés.
+
+Une seconde partie des données concernent les indicateurs exogènes utiles aux estimations économétriques des postes de la demande (taux de change, prix du baril, indice des prix, nombre d'emploi...) à partir du fichier `input/dt_indicateur.csv`.
+
+Nous importons donc les 2 bases de données et y appliquons des modifications mineures (suppression variables inutiles, modification des noms des variables) avec le fichier `src/extract.R`. Dans ce programme nous importons également des bases de données pour des indicateurs précis (prix de l'essence, du pétrole, déflateur du PIB) qui proviennent directement du site de l'ISPF. Nous les trimestrialisons car ce sont des données mensuelles. Nous fusionnons les bases de données afin d'obtenir `dt_pf`, base de données prête à étre retraitée. Cependant, si ces indicateurs restent utile, ces indicateurs doivent être intégrés aux code de collecte des données réalisé en amont de ce projet.
+
+Il faut noter que la collecte des données, la trimestrialisation et les corrections ne sont pas réalisé dans ce projet. Ces étapes sont déjà réalisées dans les bases `input/dt_pib_tresthor.csv` et `input/dt_indicateur.csv`.
+
+```{r importation}
+
+# Nous ne détaillerons pas le code ici, se référer aux fichiers en question
+
+setwd("C:/Users/ludovicg/Documents/R/ludovic")
+source("src/extract.R")
+```
+
+## Les données à collecter
+
+Nous différencions 3 catégories devariables (hors coefficients) afin de clarifier les explications à venir :
+
+* Variable *exogènes* : variables nécessairement observé 
+* Variables *endogènes* : variables qui peut être déterminée sur la base d'une relation avec d'autres variables et calculée en prévision. Ces variables n'ont pas besoin d'être observées.
+* Variable *hybride* : variable catégorisée comme endogène par `Tresthor` dans le modèle et appartenant au membre de gauche d'une équation économétrique (variable dépendante). Elle est *endogène* car déterminée par le membre de droit, mais elle doit être observée sur la période d'estimation afin de procéder à l'estimation des *coefficients économétriques*.
+
+`Tresthor` différencie uniquement les *endogènes* des *exogènes* donc ceci est uniquement à but pédagogique. 
+
+En réalité chaque étape de `Tresthor` ne requiert pas les mêmes données et pas sur les mêmes périodes :
+
+* **Phase d'estimation** : nécessite de détenir dans la base de données les observations, sur la période d'estimation, des variables *hybrides* et des variables *exogènes* ou *exogènes* qui sont incluses dans des équations économétriques.
+* **Phase de simulation** : nécessite de détenir dans la base de données les observations, sur la période de simulation (généralement identique à la période d'estimation), des *coefficients économétriques*, des variables *hybrides* et des variables *exogènes* ou *exogènes* qui sont incluses dans des équations économétriques.
+* **Phase de prévision** : nécessite de détenir dans la base de données les observations d'absolument toutes les variables inclusent dans le modèle au dernier trimestre avant le début de la prévision et également de connaitre les données des variables exogènes sur la période de prévision.
+
+Certaines des variables *exogènes* et *hybrides* ne sont pas encore à ce stade dans la base de données malgré qu'il est requit de connaître leurs observations sur la période d'estimation. Nous les constuirons en amont avec des hypothèses hors modèle à ce stade expérimental. C'est notamment le cas de certains déflateurs ou de données de l'emploi. 
+
+Dans tous les cas, les observations des variables *endogènes*  ne sont pas nécessaires au moment de la collecte de données mais elles peuvent tout de même être collectées afin d'améliorer la précision des données. En effet, si les *endogènes* ne sont pas collectées alors il sera nécessaire de les déterminer manuellement dans la phase d'initialisation, pouvant les faire différer de la réalité.
+
+## Dictionnaire de variable
+
+Ci-dessous le dictionnaire de variable (non définitif):
+
+```{r dictionnaire, echo=FALSE}
+setwd("C:/Users/ludovicg/Documents/R/ludovic") #Attention à cette fonction pour répliquer le rmd
+knitr::kable(fread("output/dictionnaire.csv"), format="markdown")
+```
+
+Ce dictionnaire a été construit dans le fichier `src/dictionnaire.R`. Afin de le modifier il est nécessaire d'avoir exécuter `Main.R` au préalable. Notons que le suffixe `s11` correspond aux entreprises, `s13` aux administrations et `s14` aux ménages.
+
+## Données en volume chainé
+
+Un changement de méthodologie a été adopté en métropole pour les comptes trimestriels en mai 2007 pour le partage volume-prix. Les volumes doivent être calculés aux prix de l’année précédente puis chaînés alors qu’ils étaient auparavant évalués aux prix d’une année fixe. Nous ne détenons pour pas les données en volume dans la base de données d'origine, or ce devrait être le cas.
+
+## Trimestrialisation
+
+Les données utilisées dans le modèle sont retraitées pour être analysées. En effet, la collecte des données requiert une standardisation aux normes des schémas `Tresthor`. Le premier défi est de trimestrialiser les données des comptes économiques qui sont relevées en fréquence annuelle en Polynésie française. Deux méthodes ont été suivi afin de trimestrialiser. La première méthode constitue un benchmark de par sa simplicité. En effet, elle consiste à interpoler linéairement (et à diviser par quatre si c'est une variable de flux) afin de déterminer les observations manquantes. La seconde méthode utilisée est la méthode *Denton-Cholette*. Elle consiste à désagréger temporellement la série par une optimisation sous contrainte. La cohérence temporelle est la principale contrainte d’intérêt. Pour les variables de flux, une somme de valeurs infra-annuelles, par exemple, quatre valeurs trimestrielles, doit habituellement être la même qu’une valeur annuelle. Pour les variables de stock, l’une des valeurs infra-annuelles, habituellement la première ou la dernière, doit être la même que la valeur annuelle pertinente. Attention à ne pas traiter les variables de flux et de stock de la même manière. L'optimisation est basée sur un indicateur temporelle dont on connait les valeurs trimestriels, mais l'optimisation peut également être menée sans indicateur en ajoutant une constante dans la régression. Par la méthode des moindre carrés généralisés, les résidus sont alors minimisées en considérant que chaque trimestre est pondéré de la même façon. Denton (1971) a proposé une procédure d’étalonnage fondée sur les premières différences proportionnelles (PDP) entre la série cible et la série originale. Cholette (1984) a modifié légèrement le résultat de Denton, afin de traiter correctement les conditions de départ du problème [^n2]. 
+Nous menons une comparaison des deux méthodes à partir de la série annuelle suivante résultant de la consommation des ménages :
+
+```{r conso annuelle, echo = F}
+
+# Import données annuelles
+
+dt_an <-
+  fread(file = "C:/Users/ludovicg/Documents/R/ludovic/input/dt_pib_eretes.csv")
+
+# Représentation graphique
+
+ggplot(data = dt_an
+       , aes(x = DATE, y = CF_S14)) +
+  geom_line() +
+  ggtitle(paste0("Evolution de la consommation des ménages annuelle"))
+```
+
+
+[^n2]: Méthode Denton-Cholette : voir https://www150.statcan.gc.ca/n1/pub/12-001-x/2018001/article/54927/02-fra.htm et
+https://journal.r-project.org/archive/2013-2/sax-steiner.pdf et
+https://cran.r-project.org/web/packages/tempdisagg/vignettes/intro.html
+
+### Méthode d'interpolation linéaire
+
+Pour cette méthode il est nécessaire de créer le vecteur de date d'arrivée. On choisit également de répéter chaque observation 4 fois afin d'obtenir un datatable à la taille souhaitée à l'arrivée. Attention à diviser par 4 dans ce cas.
+
+```{r interpolation linéaire}
+
+# Reformatage du vecteur temporel
+
+dt_an[, DATE := as.IDate(seq.Date(
+  from = as.IDate(date_debut_obs) + 1,
+  by = "year",
+  length.out = nrow(dt_an)
+) - 1)]
+
+# Création du vecteur temporel d'arrivée 
+
+date2 <-
+  (seq.Date(
+    from = as.IDate(date_debut_obs) + 1,
+    by = "quarter",
+    length.out = nrow(dt_an) * 4
+  ) - 1)
+
+# Répétition des données fois 4 
+
+dt_tr <- setDT(lapply(dt_an, freqconv_repeat, times = 4))
+
+# Approximation linéaire
+
+dt_tr[, CF_S14 := approx(
+  x = dt_an$DATE,
+  y = dt_an[, CF_S14],
+  xout = date2,
+  method = "linear",
+  ties = "ordered"
+)$y / 4][, DATE := date2]
+
+```
+
+Nous pouvons maintenant analyser le résultat de cette trimestrialisation :
+
+```{r conso trimestrialisee par interpolation linéaire, echo = F, message = F }
+plot(dt_tr$CF_S14)
+```
+
+### Méthode Denton-Cholette
+
+Pour cette seconde méthode nous utilisons la fonction `td()` qui prend en argument [^n3] :
+
+* `formula` : spécification choisit pour trimestrialiser (nous n'utilisons pas d'indicateur de référence donc on ajoute une constante dans la régression)
+* `conversion ` : par défaut `sum`, mais cela pourrait être `mean`, `first` ou `last` selon le type de vaiable (stock ou flux) et l'objectif. Nous avons ici une variable de flux donc nous gardons la valeur par défaut qui permet de retrouver la valeur annuel en sommant les 4 valeurs trimestrielles.
+* `to` : Fréquence de désagrégation (égale à 4 pour une trimestrialisation)
+* `method` : plusieurs méthode sont disponible. Nous avons arbitrairement choisit *Denton-Cholette* car théoriquement accessible.
+
+[^n3]: Nous essayerons de lister les arguments de chaque fonction spéciale utilisée. Cependant la liste ne sera pas toujours exhaustive, d'autres options peuvent compléter l'utilisation des fonction.
+
+```{r interpolation Denton-Cholette}
+DC <- td(dt_an$CF_S14 ~ 1, to = 4, method = "denton-cholette")
+```
+
+td() produit un objet de classe "td". Les valeurs trimestrielles des ventes qui en résultent peuvent être extraites à l'aide de la fonction predict() :
+
+```{r conso trimestrialisee par la méthode Denton-Cholette, echo = F}
+plot(predict(DC))
+```
+
+La méthode Denton-Cholette semble davantage corespondre à nos attentes étant donné qu'elle prend en compte les dynamiques de variation. Par exemple, le taux de croissance de la consommation diminue avant un maximum local alors que l'interpolation linéaire implique un taux de croissance constant entre deux trimestres interpolés. 
+
+A titre de comparaison, le programme inclue la possibilité de passer par l'interpolation linéaire pour trimestrialiser en définissant `Donnee_lissee` sur `TRUE` dans `Main.R`. Pour ce faire nous reprenons les données annualisées pprovenant de `dt_pib_eretes`. Cependant ces données n'incluent pas l'investissement, donc nous complétons avec les données trimestrialisés par la méthode *Denton-Cholette*. Cette étape ambigue n'est pas utile et devra être retirée quand les données trimestrialisées par la méthode *Denton-Cholette* n'oscilleront plus de trimestre en trimestre. L'oscillation est dû à des recalculs de variables par des différences (consommation déduite en retranchant au PIB les autres postes de la demande). Ceci pose la question de l'obtention des variations de stocks? 
+
+On peut très clairement voir sur ce graphique que la trimestrialisation actuelement utilisée, données provenant de `input/dt_pib_tresthor.csv` n'est pas satisfaisante en comparant avec les graphiques précédents :
+
+```{r trimestrialisation actuellement utilisée, echo = F}
+
+# Représentation graphique
+
+ggplot(data = dt_pf
+       , aes(x = date, y = cf_s14_v)) +
+  geom_line() +
+  ggtitle(paste0("Evolution de la consommation des ménages de dt_pib_tresthor"))
+```
+
+### Trimestrialisation à partir de données mensuelles
+
+Nous avons receuillit certains indicateurs sur le site de l'[ISPF](https://www.ispf.pf/chiffres) afin de compléter la base de données. Des indicateurs tels que le prix de l'essence peuvent être relevés mensuellement. Il s'agit alors de trimestrialiser mais cette fois en perdant de l'information afin de s'adapter au cadre `Tresthor`. Dans ce cas, nous prenons la moyenne des observations appartenant au même trimestre. Ci-dessous un exemple avec la fonction `tr()` créée pour fournir l'année et le trimestre d'une date.
+
+```{r trimestrialisation inversée, eval = F}
+
+# Import données exemple (pétrole)
+
+dt_petrole <-
+  setDT(read_excel("C:/Users/ludovicg/Documents/R/ludovic/input/Petrole.xlsx"))
+dt_petrole[, Date := as.Date(Date)]
+
+#Création d'une colonne trimestre
+for (i in 1:nrow(dt_petrole))
+  dt_petrole[i, trimestre := tr(Date)]
+
+# Moyenne des valeurs mensuelles par trimestre
+
+dt_petrole <-
+  dt_petrole[, Petrole := mean(Petrole), by = trimestre][year(Date) >= year(date_debut_obs) &
+                                                           Date <= as.Date(date_fin_obs), .SD[1], by = trimestre]
+dt_pf[, petrole := rev(dt_petrole$Petrole)] #On utilise rev() car le sens chronologique est inversée par rapport à notre base de données principale
+```
+
+Notons ici que nous avons utilisé `as.Date()`. Un point d'attention particulier doit être porté au format du vecteur date qui peut créer beaucoup d'erreurs à cause du fonctionnement de `Tresthor`. Afin que tous fonctionne correctement, le vecteur de date doit en effet être au format `Date` (`IDate` peut, pour certaines fonctions, créer des erreurs).
+
+## CVS/CJO 
+
+`Tresthor` requiert également que les données soient corrigées des effets de saisonalité ou de jours ouvrés (Se renseigner sur la méthode utilisée). Se questionner sur la possibilité de CVS des données créées artificiellement par interpolation.
+
+
+# Preparation des données
+
+Il s'agit maintenant de préparer les variables avant utilisation du package `Tresthor`.
+
+## Hypothèses hors modèle pour déterminer les variables *exogènes* et *hybride* manquantes
+
+Dans le cadre expérimental, nous faisons des hypothèses hors modèle afin de combler les données manquantes. Ces données devront être complétées avec des informations plus précises étant donné que les déflateurs structurent le partage volumes/valeur. 
+
+```{r hypothèse hors modèle}
+#Hypothèse hors modèle
+
+dt_pf[, c("dfl_fbcf_s13",
+          "dfl_m",
+          "dfl_x",
+          "dfl_cf_s13") := dfl_pib]
+
+```
+
+Nous créons des variables agrégées en sommant notamment les données concernant les biens à celle concernant les services pour les imports et exports afin de débuter à un niveau global de l'économie. D'autres versions du modèle pourraient être poursuivies à des niveaux désagrégés de l'économie.
+
+
+```{r aggrégation}
+
+#Aggrégation
+
+dt_pf[, x_v := x_b_v + x_s_v][
+  , m_v := m_s_v + m_b_v]
+```
+
+Pour la boucle prix-salaire, nous construisons des variables utiles à partir de données de l'emploi :
+
+```{r construction variables emploi}
+#Construction des variables de l'emploi
+
+dt_pf[, rs_v := rs_s11_v + rs_s13_v]
+
+dt_pf[, emploi := eff_sal_etp + total][
+    , salaire := (msalb - ch_sal -cst) / 100000][
+    , msalb := msalb / 100000][
+    , ch_sal := ch_sal / 100000][
+    , ch_pat := ch_pat / 100000][
+    , cst := cst / 100000]
+```
+
+Il y a plusieurs choses à revoir conséquemment à ce code. Toutes les données ne sont pas en millions de franc pacifique. De plus, la variable `salaire` ne correspond pas à la variable `rs_v` alors qu'elles sont censées être identiques. Il existe peut-être un problème de division par 4 dans la trimestrialisation. Ce problème est en fait une recommandation plus général : revérifier la cohérence de chaque série et notamment des séries *endogènes* qui seront crées dans le modèle. Par exemple, le salaire moyen par tête doit être revu afin d'analyser sa cohérence. Enfin, nous ne possédons pas les données du chômage qui sont pourtant très utiles aux estimations des *coefficients économétriques* ainsi que les heures travaillées par emploi (la variable `heure` est construire avec `eff_sal_etp`*507, ce qui ne permet pas de retrouver les heures travaillées par emploi).
+
+Nous allons maintenant artificiellement constuire le revenu disponible brut (RDB). D'après la [définition de l'INSEE](https://www.insee.fr/fr/metadonnees/definition/c1633), le RDB est le revenu qui reste à la disposition des ménages pour la
+consommation et l’épargne une fois déduits les prélèvements fiscaux et sociaux.
+
+D'abord, on considère que le RDB que nous construisons concerne uniquement les ménages (les entreprises individuelles ne sont donc pas comprises dedans). Afin de construire le RDB, on détermine la variable `pmc`, correspondant à la propension moyenne à consommer, i.e. la pmc est la part du revenu destiné à la consommation. Nous déterminons ensuite le RDB à partir de la consommation et de la `pmc`. Enfin, afin de dévier de la relation comptable entre le RDB et la consommation finales des ménages, nous incluons une pertubation relative grâce à un tirage aléatoire (fixé par `set.seed`).
+
+```{r construction artificielle RDB}
+#Construction artificielle rdb_s14_v hors modèle
+
+set.seed(123) #Afin d'évoluer toutes choses égale par ailleurs durant la phase expérimentale, nous gardons le même tirage aléatoire à chaque exécution du code
+
+dt_pf[, pmc := 0.8][,
+    rdb_s14_v:=cf_s14_v/pmc][,
+    pertu:=rnorm(1:nrow(dt_pf),0,0.05) ][,
+    rdb_s14_v:=rdb_s14_v+rdb_s14_v*pertu]
+```
+
+Cette construction artificielle est très problématique et a beaucoup de conséquences. Nous avons définit le RDB à partir d'un choix arbitraire basé sur la théorie keynésienne. En effet, nous avons fait l'hypothèse que la propension moyenne à consommer est constante. Le choix a été fait de postuler que la consommation est de 80% du RDB. Cette hypothèse peut être viable à long terme. Cependant, dans un modèle de court terme, elle fausse les conclusions car elle retire tout possibilité d'épargne de précaution ou de lissage de la consommation. L'hypothèse même d'une pmc constante est contre productive dans un modèle de court terme. Il s'agirait donc de déterminer la définition comptable de la variable `rs_v` afin de déterminer en quoi le RDB en diffère. Dans le cas où il n'en diffère pas, il s'agirait de se questionner sur l'utilité d'inclure le RDB dans le modèle alors même qu'il est très difficile de le déterminer en Polynésie française du fait de la spécificité des revenus. 
+Le modèle se veut en fait davantage basé sur la théorie du revenu permanent de Friedman que sur la théorie keynesienne d'une propension à consommer constante. A court terme, les choix effectués par les consommateurs sont dictés, non pas par leur revenu effectif actuel, mais par leur estimation de revenu à long terme. La consommation des ménages ne varie pas forcément avec les flucutations de revenu, ainsi on observe des variations de la propension marginale à consommer en fonction de la conjoncture. Les ménages ont tendance à augmenter leur propension à consommer en temps de crise. Ce constat est d'ailleurs encore plus adéquat avec les habitudes polynésiennes que métropolitaine empiriquement. En effet, alors que les métropolitains ont tendance à former une épargne de précaution pendant les périodes de récession, les ménages polynésiens sont quant à eux davantage consommateur. Le RDB devrait être construite sur la base des données issue de l'épargne conjointement aux données de la consommation des ménages.
+
+Le problème du RDB n'est pas anondin car il fausse directement deux équations économétriques comme expliqué dans le rapport `doc/Rapport_des_tests_econometriques.Rmd`. De plus le RDB est basé sur les données de la consommation finale des ménage qui ne semblent pas juste comme précisé dans la partie dédiée à la trimestrialisation.
+
+## Transition
+
+Tout le travail réalisé jusqu'ici sur la base de données (imports de base de données, modifications mineures, fusion, construction de variables *exogène* ou *hybride*) doit être scindé du travail qui va suivre à l'avenir. Effectivement, quand les données seront validées, il s'agira de regrouper les données en amont et d'écrire avec `fwrite()` un fichier `.csv` final à insérer dans les input. Le code présent dans `src/extract.R` et dans le début de `src/transform.R` relève de la phase expérimentale. Il retrace en quelque sorte la réflexion qui a été mené mais reste du "bricolage". Tout ce qui suit maintenant est directement lié à l'estimation et à la prévision.
+
+Nous aurions pu insérer tout le code concernant cette étape de construction des données dans `src/extract.R`. Cependant, nous avons choisi d'en distinguer une partie en l'insérant dans `src/transform.R` car ceux sont quand même des transformations majeures à cette étape de l'étude qu'il est nécessaire de revoir en détail dans ce rapport (au contraire du fichier `src/extract.R` que nous n'avons pas détaillé). Lorsque les données seront arrêtées, il suffira d'importer dans `src/extract.R` le fichier écrit en .csv et de supprimer la partie du code devenue inutile dans `src/transform.R`.
+
+Le programme qui suit maintenant est automatisé autant que possible et est lié à l'utilisation du package `Tresthor`. 
+
+## Supression de lignes/création de lignes sur l'horizon de prévision
+
+Afin de définir les données en prévision comme *Non Available*, nous :
+
+* basculons à 0 les lignes d'observations appartenant à l'horizon de prévision et dont on connaissait les observations (cela peut être le cas dans des exercices post mortem ou bien dans le cadre expérimental)
+* ajoutons au `data table` `dt_pf` les lignes d'observations appartenant à l'horizon de prévision qui n'étaient pas dans la base de données
+
+Par exemple, si `dt_pf` contient des observations jusqu'en "2018-12-31" et si l'utilisateur définit la période de prévision comme allant de :
+
+* "2016-03-31" à "2018-12-31" : le code suivant remplacera les observations par `NA` sur cette période. 
+* "2019-03-31" à "2020-12-31" : le code suivant créeras 8 lignes avec les dates correspondante aux trimestres de l'horizon de prévision choisit dans la colonne `date` et `NA` pour toutes les autres colonnes sur cette période.
+* "2018-03-31" à "2019-12-31" : le code suivant remplacera les observations par `NA` pour les trimestres de 2018 et créeras 4 lignes avec les dates correspondante aux trimestres de 2019 dans la colonne `date` et `NA` pour toutes les autres colonnes pour les trimestres de 2019.
+
+```{r Na en prévision}
+#Supression de lignes/création de lignes sur l'horizon de prévision
+
+for (i in horizon_prev) {
+  if (as.Date(i) %in% dt_pf$date) {
+    dt_pf[date == as.Date(i), setdiff(names(dt_pf), "date") := NA]
+  }
+  else {
+    dt_add <-
+      data.table(matrix(as.numeric(NA), nrow = 1, ncol = ncol(dt_pf)))
+    setnames(dt_add, new = names(dt_pf))
+    dt_add[, date := as.IDate(i)]
+    dt_pf <- rbind(dt_pf, dt_add)
+  }
+}
+
+```
+
+## Création de vecteurs utiles
+
+Nous définisons les index des différents horizons. Ils ne sont pas dans le fichier `src\definitions.R` car ils sont basés sur `dt_pf`. Ces index allègent le code pour l'utilisation de certaines fonctions, et sont parfois nécessaires dans le cadre de l'utilisation du package `Tresthor`.
+
+```{r index horizon temporel}
+#Définition des index d'horizon temporel
+
+horizon_estim_index <- which(dt_pf$date %in% as.Date(horizon_estim))
+horizon_prev_index <- which(dt_pf$date %in% as.Date(horizon_prev))
+horizon_total_index <- 1:nrow(dt_pf)
+```
+
+## Hypothèse de scénario pour les variables *exogènes* en prévision (Travaux du prévisionniste)
+
+Maintenant que nous avons préparer le jeu de données, il s'agit de réaliser des hypothèses. Ce travail sera à réaliser par le prévisionniste. Le code suivant peut ainsi être modifié dans le programme par le prévisionniste. Ces hypothèses structurent la dynamique de la prévision. Le modèle ne peut en effet pas être résolu de lui-même. Il requiert une aide humaine. Les données concernant les variables *exogènes* sur la période de prévision doivent donc être entrées manuellement afin de pouvoir par la suite prévoir les dynamiques des variables *endogènes*. Dans le cadre expérimental, nous nous limitons à deux type d'hypothèse, la variables est stable en prévision ou la variable varie en prévision à taux constant (taux déterminer selon sa dynamique sur les 8 derniers trimestres). Nous classifions les variables dans l'une ou l'autre catégorie grâce à une analyse visuel de leur dynamique. En pratique il serait aisé d'automatiser le processus en les classifiant grâce à un seuil de taux de croissance ou bien en les plaçant toutes dans la seconde catégorie. Cependant, notre classification manuel nous laisse une marge de manoeuvre pour facilement amender les scénarios de prévision et résoudre à nouveau le modèle. Ce travail est en théorie à faire à chaque fois que l'on change la période de prévision dans les paramètres utilisateur.
+
+
+```{r hypothèse de scénario}
+
+#Graphique pour classifier la variable dans l'une ou l'autre catégorie d'hypothèse
+
+ggplot(data = dt_pf
+       , aes(x =date, y=x_v)) +
+  geom_line() +
+  ggtitle(paste0("Evolution des exportations")) #Exemple avec les exports
+
+# Variables traitées comme séries stables
+
+series_stables <-
+  c(
+    "dfl_fbcf_s13",
+    "dfl_m",
+    "dfl_x",
+    "fbcf_s13_v",
+    "ipc_tot",
+    "vs_v",
+    "pmc",
+    "dfl_cf_s13",
+    "tcen",
+    "petrole"
+  ) 
+
+dt_pf[horizon_prev_index, c(series_stables) := dt_pf[rep(horizon_prev_index[1]-1, 
+          length(horizon_prev_index)),
+              c(series_stables), with = F]]
+
+# Variables traitées comme séries croissantes
+
+series_croissantes <- 
+  c("x_v", 
+    "cf_s13_v", 
+    "rs_v", 
+    "rs_s11_v",
+    "eff_sal_etp",
+    "brent",
+    "msalb",
+    "fbcf_s14_v",
+    "cf_s14_v",
+    "px_immo",
+    "va_v",
+    "ind_btp"
+  ) 
+
+laps <-
+  8 #Choix du nombre de trimestre pour établir le taux de croissance
+
+n0 <- horizon_prev_index[1] - laps
+n1 <- horizon_prev_index[1] - 1
+
+x0 <- dt_pf[n0, c(series_croissantes), with = F]
+x1 <- dt_pf[n1, c(series_croissantes), with = F]
+
+variation <-
+  (x1 / x0) ^ (1 / (n1 - n0))
+
+for (h in horizon_prev_index) {
+  dt_pf[h, (series_croissantes) := dt_pf[h - 1, c(series_croissantes), with =
+                                           F] * (variation)]
+}
+
+```
+
+On applique un statut spécial d'hypothèse pour l'investissement des entreprises et les imports du fait des avions achetés en 2018. Nous faisons donc deux hypothèses extrêmement arbitraire. Il s'agirait de retrancher le coût exact des avions dans les données de base car le modèle peut difficilement traiter de si important écarts.
+
+```{r hypothèse investissement avion}
+#Hypothèse investissement entreprises et imports
+
+dt_pf[horizon_prev_index, fbcf_s11_v := 16000][horizon_prev_index, m_v := 55000]
+```
+
+Il s'agirait par la suite de créer différents scénarios d'hypothèses et de tester le modèle en prévision afin de voir comment il réagit avec des scénarios plus ou moins envisageable. Nous n'avons pas encore réalisé ce travail car les données sont encore à un stade trop primaire et il était préférable de construire une base solide en amont.
+
+## Construction d'indicatrices (Travaux du modélisateur)
+
+Nous construisons maintenant des indicatrices afin de prendre en compte les valeurs abérantes dans les régressions, données notamment issues de la crise ou de l'achat des avions.  Ces variables sont égales à 0 sur la période de prévision. Ce travail est à réaliser par le modélisateur sur la base du modèle d'équation rédigé dans le fichier `.txt`.
+
+```{r indicatrices}
+#Indicatrices
+
+#crise 2008
+
+dt_pf[,dummy_crise_fi:=0][date>=as.Date("2008-03-31")&date<=as.Date("2009-12-31"),dummy_crise_fi:=1]
+
+#Avion 
+
+dt_pf[,dummy_18_q1:=0][date==as.Date("2018-03-31"),dummy_18_q1:=1]
+dt_pf[,dummy_18_q2:=0][date==as.Date("2018-06-30"),dummy_18_q2:=1]
+dt_pf[,dummy_18_q3:=0][date==as.Date("2018-09-30"),dummy_18_q3:=1]
+dt_pf[,dummy_18_q4:=0][date==as.Date("2018-12-31"),dummy_18_q4:=1]
+
+#ou bien une seule indicatrice pour les 2 achats d'avion
+
+dt_pf[,dummy_avion:=0][date>=as.Date("2018-03-31")&date<=as.Date("2018-12-31"),dummy_avion:=1]
+```
+
+Dans le cas où le coût exact des avions serait retranché dans les données de base, l'indicatrice concernant les avions sera bien sûr inutile.
+
+On ajoute également une variable nommée `tendance` qui peut être utile dans les tests de spécification. En effet, nous pourrions vouloir retirer l'effet d'une dérive temporelle dans une série de données pour l'estimation des *coefficients économétriques*. 
+
+```{r définition dérive temporelle}
+#Dérive temporelle
+
+dt_pf[,tendance:=1:nrow(dt_pf)]
+```
+
+# Tresthor
+
+## Le modèle `Perle`
+
+Le fichier `txt` suivant contient l'ensemble des équations que nous avons construite permetant de modéliser l'économie Polynésienne. La construction des équations économétriques est détaillée dans le rapport `doc/Rapport_des_tests_econometriques.Rmd`. Les équations sont simplement reprises et adaptées de l'exemple proposé par la DG trésor pour modéliser l'économie de Grande Bretagne.
+
+```{r présentation modèle , echo = FALSE, comment=NA}
+cat(readLines("C:/Users/ludovicg/Documents/R/ludovic/input/PF_model.txt"), sep = '\n')
+```
+
+L'ordre des variables ou des équations n'a pas d'importance pour la résolution du système par `Tresthor`. Toutefois à des fins didactiques, nous avons choisit un ordre définit. Chaque catégorie de variable, *endogène*, *exogène* et *coefficients économétriques*, est rangée par ordre alphabétique. Concernant les équations, le choix a été fait de les ranger de manière à ce que le système puisse être résolu dans l'ordre des équations exposé de haut en bas. Plusieurs ordres aurait permis de résoudre le système, nous en avons choisit un arbitrairement. Connaitre l'ordre de résolution est en fait très utile pour utiliser `Tresthor` car le programme doit initialiser chaque *endogène*. Il n'existe aucune fonction capable de réaliser cette tâche. Il serait néanmoins surement possible de définir une fonction afin de trouver automatiquement cet ordre. En effet l'objet `thor.model`, que nous allons créer avec `Tresthor` sur la base du fichier `.txt` exposé, classifie les équations en trois catégories :
+
+* Le prologue contient les équations et les variables *endogènes* concernées qui peuvent être résolues en premier lieu indépendemment des autres variables (après que les premières variables du prologue sont calculées, si d’autres variables peuvent être résolues directement, elle font également parties du prologue).
+
+* Le coeur du modèle concerne les variables interdépendantes qui doivent être résolues en même temps. L’algorithme utilisé ne détermine qu’un seul coeur, même s’il peut exister à l’intérieur de celui-ci plusieurs blocs d’équations simultanées indépendants les uns des autres.
+
+* L’epilogue contient les équations et les variables qui peuvent être résolues simplement une fois que les variables du coeur sont calculées.
+
+Cette classification pourrait permettre dans une certaine mesure de connaitre l'ordre de résolution.
+
+Même si nous avons écrit les équations du modèle dans leur ordre de résolution, nous avons cependant décidé de laisser toutes les équations économétriques en bas de ce fichier `.txt`. Ce sont  en effet les équations les plus régulièrement amendées pendant la phase expérimental donc cela permet de les retrouver rapidement dans le fichier `.txt`. L'ordre établit de ces équations économétriques est l'ordre dans lequel nous avons implémenté les équations. En effet nous avons incorporé les équations économétriques une par une avant d'arriver au modèle présent. Nous avons débuté par un modèle totalement comptable pour aboutir de façon expérimental au modèle présenté dans ce rapport.
+
+En plus d'être dans l'ordre de résolution du sytème (mis à part les équations économétriques), nous pouvons classifier ces équations en différent groupes. En maintenant l'ordre des équations du fichier `txt`, nous allons donc maintenant successivement présenter les différents blocs d'équation. Les 9 premiers blocs seront composés uniquement d'équations comptable tandis que le dernier concernera les équations économétriques.
+
+Notons que le membre de gauche de l'équation est quasiment toujours l'*endogène* de l'équation . Plusieurs variables peuvent être *endogènes* dans une équations mais il ne peut y en avoir qu'une qui est déterminée par l'équation, les autres *endogènes* sont déterminées en amont par une équation qui leur est propre. Par conséquent, il doit y avoir autant de variables *endogènes* que d'équations.
+
+### Bloc 1 : Déflateurs (équations comptables)
+
+Il s'agit dans ce premier bloc de calculer les déflateurs (non-*exogènes*) et les variations d'inflation. Il faudrait toutefois revoir les déflateurs qui sont pour l'instant arbitrairement choisis et qui peuvent donc différer de ceux obtenus avec le système comptable en place. Par exemple, si  les données des postes de la demande en volume pendant la période d'estimation sont inscrites dans la base, alors l'utilisation de ces déflateurs pourraient créer des sauts au passage en prévision. Nous ne subissons pas ce problème car nous avons manuellement définit les variables en volume sur la base des déflateurs construit sur la période de prévision. Cela n'est pas forcément ce qu'il se fait pour une utilisation normale de l'outil, les observations des variables *endogènes* peuvent en effet  être connues sur la période passée (la période d'estimation).
+
+
+* $ec\_ipc\_tot\_vt:ipc\_tot\_vt=(ipc\_tot-lag(ipc\_tot,-1))/lag(ipc\_tot,-1)$
+* $ec\_dfl\_fbcf\_s11:dfl\_fbcf\_s11=lag(dfl\_fbcf\_s11,-1)*(1+ipc\_tot\_vt)$
+* $ec\_dfl\_fbcf\_s14:dfl\_fbcf\_s14=lag(dfl\_fbcf\_s14,-1)*(px\_immo/lag(px\_immo,-1))$
+* $ec\_dfl\_cf\_s14:dfl\_cf\_s14=lag(dfl\_cf\_s14,-1)*(1+ipc\_tot\_vt)$
+
+### Bloc 2 : PIB nominal (équations comptables)
+
+Ce second bloc permet de sommer les postes de la demande en valeur afin d'obtenir le PIB nominal. Certaines variables sont *endogènes* car déterminées par une équation économétrique (consommation des ménages, investissement des entreprises et des ménages, importations), alors que d'autres sont *exogènes* (consommation des administration, investissement des administration, exportations). Quand un poste de la demande (en volume) est déterminé par une équation économétrique, nous avons également endogonéisé son déflateur dans le bloc précédent (sur la base d'un indicateur tel que l'inflation ou le prix de l'immobilier). Nous pouvons ainsi endogenéisé sa valeur nominal (grâce au déflateur). On connait par exemple `cf_s14_v` mais on le recalcul en prévision sur la base de `cf_s14` qui est obtenu grâce à un MCE et de son déflateur `dfl_cf_s14` :
+
+* $ec\_cf\_s14\_v:cf\_s14\_v=cf\_s14*dfl\_cf\_s14$
+* $ec\_cf\_v:cf\_v=cf\_s13\_v+cf\_s14\_v$
+* $ec\_fbcf\_s11\_v:fbcf\_s11\_v=fbcf\_s11*dfl\_fbcf\_s11$
+* $ec\_fbcf\_s14\_v:fbcf\_s14\_v=fbcf\_s14*dfl\_fbcf\_s14$
+* $ec\_fbcf\_v:fbcf\_v=fbcf\_s11\_v+fbcf\_s13\_v+fbcf\_s14\_v$
+* $ec\_m\_v:m\_v=m*dfl\_m$
+* $ec\_pib\_v:pib\_v=cf\_v+fbcf\_v+x\_v-m\_v+vs\_v$
+
+### Bloc 3 : Postes de la demande en volume (équations comptables)
+
+Le troisième bloc permet d'effectuer le partage volume/valeur afin de retrouver les postes de la demande en volume. Nous devons logiquement déterminer le niveau réel de la consommation et de l'investissement des administrations étant donné qu'ils ne sont pas déterminés par une équation économétrique :
+
+* $ec\_cf\_s13:cf\_s13=cf\_s13\_v/dfl\_cf\_s13$
+* $ec\_cf:cf=cf\_s13+cf\_s14$
+* $ec\_fbcf\_s13:fbcf\_s13=fbcf\_s13\_v/dfl\_fbcf\_s13$
+* $ec\_fbcf:fbcf=lag(fbcf,-1)*(((fbcf\_s14/lag(fbcf\_s14,-1)-1)*lag(fbcf\_s14\_v,-1)+(fbcf\_s11/lag(fbcf\_s11,-1)-1)*lag(fbcf\_s11\_v,-1)+(fbcf\_s13/lag(fbcf\_s13,-1)-1)*lag(fbcf\_s13\_v,-1))/lag(fbcf\_v,-1)+1)$
+* $ec\_x:x=x\_v/dfl\_x$
+
+### Bloc 4 : Contribution des postes de la demande au PIB (équations comptables)
+
+La DG du trésor passe par un calcul de contribution des postes de la demande au PIB dans leur raisonnement logique. Ce shéma a été répliqué même si ces équations n'ont pour l'instant pas d'utilité majeure :
+
+* $ec\_cont\_cf\_s13:cont\_cf\_s13=(cf\_s13/lag(cf\_s13,-1)-1)*(lag(cf\_s13\_v,-1)/lag(pib\_v,-1))$
+* $ec\_cont\_cf\_s14:cont\_cf\_s14=(cf\_s14/lag(cf\_s14,-1)-1)*(lag(cf\_s14\_v,-1)/lag(pib\_v,-1))$
+* $ec\_cont\_cf:cont\_cf=cont\_cf\_s13+cont\_cf\_s14$
+* $ec\_cont\_fbcf\_s11:cont\_fbcf\_s11=(fbcf\_s11/lag(fbcf\_s11,-1)-1)*(lag(fbcf\_s11\_v,-1)/lag(pib\_v,-1))$
+* $ec\_cont\_fbcf\_s13:cont\_fbcf\_s13=(fbcf\_s13/lag(fbcf\_s13,-1)-1)*(lag(fbcf\_s13\_v,-1)/lag(pib\_v,-1))$
+* $ec\_cont\_fbcf\_s14:cont\_fbcf\_s14=(fbcf\_s14/lag(fbcf\_s14,-1)-1)*(lag(fbcf\_s14\_v,-1)/lag(pib\_v,-1))$
+* $ec\_cont\_fbcf:cont\_fbcf=cont\_fbcf\_s11+cont\_fbcf\_s13+cont\_fbcf\_s14$
+* $ec\_cont\_x:cont\_x=(x/lag(x,-1)-1)*(lag(x\_v,-1)/lag(pib\_v,-1))$
+* $ec\_cont\_m:cont\_m=-(m/lag(m,-1)-1)*(lag(m\_v,-1)/lag(pib\_v,-1))$
+* $ec\_cont\_xm:cont\_xm=cont\_x+cont\_m$
+* $ec\_cont\_vs:cont\_vs=(vs\_v-lag(vs\_v,-1))/lag(pib\_v,-1)$
+
+### Bloc 5 : PIB réel (équations comptables)
+
+Nous utilisons les contributions afin de calculer le PIB réel. Nous aurions pu directement sommer les postes de la demande en volume. Néanmoins cette méthode pourrait s'avérer utile pour des développements ultérieurs. Cela complique le shéma de pensée donc il s'agirait d'étudier la valeur ajoutée de cette logique (idem pour `ec_fbcf`).
+
+* $ec\_dt\_pib:dt\_pib=cont\_cf+cont\_fbcf+cont\_x+cont\_m+cont\_vs$
+* $ec\_pib:pib=lag(pib,-1)*(dt\_pib+1)$
+* $ec\_dfl\_pib:dfl\_pib=pib\_v/pib$
+
+Notons que l'analyse du déflateur du pib est importante après prévision. Etant donné que cette variable est issue d'une cascade de calcul il faut veiller à ce que les données obtenues à partir de la résolution du système à son sujet soit cohérente avec l'inflation. Si ce n'est pas le cas, le modèle ou la base données ont un problème. 
+
+### Bloc 6 : Indicateurs de demande (équations comptables)
+
+Nous calculons ensuite la demande intérieure (dont hors stock) et finale en valeur et volume ainsi que leur contribution au PIB :
+
+* $ec\_dihs\_v:dihs\_v=cf\_v+fbcf\_v$
+* $ec\_di\_v:di\_v=dihs\_v+vs\_v$
+* $ec\_df\_v:df\_v=di\_v+x\_v$
+* $ec\_dihs:dihs=lag(dihs,-1)*(((cf/lag(cf,-1)-1)*lag(cf\_v,-1)+(fbcf/lag(fbcf,-1)-1)*lag(fbcf\_v,-1))/lag(dihs\_v,-1)+1)$
+* $ec\_di:di=(cont\_di/(lag(di\_v,-1)/lag(pib\_v,-1))+1)*lag(di,-1)$
+* $ec\_df:df=lag(df,-1)*(((di/lag(di,-1)-1)*lag(di\_v,-1)+(x/lag(x,-1)-1)*lag(x\_v,-1))/lag(df\_v,-1)+1)$
+* $ec\_cont\_dihs:cont\_dihs=cont\_cf+cont\_fbcf$
+* $ec\_cont\_di:cont\_di=cont\_dihs+cont\_vs$
+* $ec\_cont\_df:cont\_df=cont\_di+cont\_x$
+
+### Bloc 7 : Revenu disponible brut (équations comptables)
+
+Ce trio d'équation permet d'analyser le partage épargne/consommation des ménages. 
+
+* $ec\_epargne:epargne=(rdb\_s14\_v)-cf\_s14\_v$
+* $ec\_tx\_epargne:tx\_epargne=epargne/rdb\_s14\_v$
+* $ec\_pa:pa=rdb\_s14\_v/dfl\_cf\_s14$
+
+### Bloc 8 :  Emploi (équations comptables)
+
+Nous calculons maintenant les indicateurs de productivité et de coût de l'emploi pertinent pour les équations économétriques, et nous relions le salaire à l'effectif salarié.
+
+* $ec\_productivite:productivite=pib/emploi$
+* $ec\_eff\_sal\_etp:eff\_sal\_etp/lag(eff\_sal\_etp,-1)=emploi/lag(emploi,-1)$
+* $ec\_rs\_s11\_v:rs\_s11\_v=smpt\_s11*eff\_sal\_etp$
+* $ec\_csu\_s11:csu\_s11=smpt\_s11/productivite$
+
+### Bloc 8 :  Indicateurs macro (équations comptables)
+
+Les 2 indicateurs suivants peuvent être utile pour évaluer la santé économique de la Polynésie.
+
+* $ec\_tx\_marge\_macro:tx\_marge\_macro=(pib\_v-rs\_s11\_v)/pib\_v$
+* $ec\_tx\_inv:tx\_inv=fbcf\_v/pib\_v$
+
+### Bloc 9 :  Résidus des MCE (équations comptables)
+
+Les équations suivantes correpondent à la détermination des résidus *endogènes* des MCE. Les résidus sont logiquement égaux à 0 avant estimation. Sur la période de prévision les résidus exogènes, dénommés par `afusr` suivi du nom de l'équation, permettent d'introduire des chocs exogènes afin d'analyser la réponse économique telle une fonction d'impulsion. Cependant, il faut être vigilant car le résidu *endogène* incorpore les chocs exogènes de manière cumulative. Ainsi, un choc positif à un trimestre donné doit être compensé par un choc negatif égal au trimestre suivant afin d'annuler le choc. Ce type d'équation a en fait l'avantage de pouvoir garder en mémoire le dernier choc avant la période de prévision pour effectuer une prévision sans variation de résidu. 
+
+* $ec\_af\_eq\_rdb\_s14\_v:af\_eq\_rdb\_s14\_v=lag(af\_eq\_rdb\_s14\_v,-1)+afusr\_eq\_rdb\_s14\_v$
+* $ec\_af\_eq\_cf\_s14:af\_eq\_cf\_s14=lag(af\_eq\_cf\_s14,-1)+afusr\_eq\_cf\_s14$
+* $ec\_af\_eq\_fbcf\_s11:af\_eq\_fbcf\_s11=lag(af\_eq\_fbcf\_s11,-1)+afusr\_eq\_fbcf\_s11$
+* $ec\_af\_eq\_fbcf\_s14:af\_eq\_fbcf\_s14=lag(af\_eq\_fbcf\_s14,-1)+afusr\_eq\_fbcf\_s14$
+* $ec\_af\_eq\_smpt\_s11:af\_eq\_smpt\_s11=lag(af\_eq\_smpt\_s11,-1)+afusr\_eq\_smpt\_s11$
+* $ec\_af\_eq\_emploi:af\_eq\_emploi=lag(af\_eq\_emploi,-1)+afusr\_eq\_emploi$
+* $ec\_af\_eq\_ipc\_alim:af\_eq\_ipc\_alim=lag(af\_eq\_ipc\_alim,-1)+afusr\_eq\_ipc\_alim$
+* $ec\_af\_eq\_ipc\_nrj:af\_eq\_ipc\_nrj=lag(af\_eq\_ipc\_nrj,-1)+afusr\_eq\_ipc\_nrj$
+* $ec\_af\_eq\_ipc\_tot:af\_eq\_ipc\_tot=lag(af\_eq\_ipc\_tot,-1)+afusr\_eq\_ipc\_tot$
+* $ec\_af\_eq\_m:af\_eq\_m=lag(af\_eq\_m,-1)+afusr\_eq\_m$
+
+### Bloc 10 :  Equation économétriques (composé pour l'instant uniquement de MCE)
+
+Une partie du rapport sera dedié à l'explication du cheminement de construction de ces équations économétriques (y la raison pour laquelle les exportations ne font pas l'objet d'une équation économétrique) dans le rapport `doc/Rapport_des_tests_econometriques.Rmd`. Comme précisé plus haut le membre de gauche des équations économétriques est *endogène* mais on peut le caractérisé comme *hybride*. Pour rappel, l'estimation des coefficients d'une équation économétrique requiert d'observer la variable *endogène* de cette équation (et même toutes les variables de l'équation, mis à part les coefficients). Ainsi, même si la variables du membre de gauche de ces équations appartient à la catégorie *endogène*, il est nécessaire de connaitre leur observation au préalable pour estimer les *coefficients économétriques*. Cependant, quand les coefficients seront estimés les variables du membre de gauche seront déterminées par l'équation et seront donc *endogène*. Elle permettront alors à une variable aussi observée de devenir *endogène*. Dans le cadre de cette phase expérimentale, nous n'avons pas les observations de certaines de ces variables *hybrides* dans `input/dt_pib_tresthor.csv`. Nous avons seulement dans ce fichier les observations des indices des prix à la consommation parmis les variables *hybrides*. Nous avons ainsi construit en amont dans la partie "Hypothèses hors modèle" les variables *hybrides* manquantes si elles sont construites en partie sur des variables hors modèle. C'est notamment le cas de la variable `emploi` et `rdb_s14_v`. Nous créeons les autres variables *hybrides* manquantes dans l'étape "Inialisation manuelle" si elles sont construites uniquement sur la base de variables incluses dans le modèle. C'est notamment le cas des variables `cf_s14`, `fbcf_s11`, `fbcf_s14` `smpt_s11` et `m`. Par exemple, dans l'étape d'initialisation, nous allons déterminer `cf_s14` à partir de `cf_s14_v` (observé) et `dfl_cf_s14`. Nous pourrons alors estimer le MCE déterminant de `cf_s14`, ce qui nous permettra en prévision de déterminer `cf_s14_v` à partir de `cf_s14`  et `dfl_cf_s14`.
+
+* $eq\_rdb\_s14\_v:delta(1,log(rdb\_s14\_v))=a\_cst+a\_0*(log(lag(rdb\_s14\_v,-1))-a\_lt2*log(lag(msalb,-1))-a\_lt1)+a\_1*delta(1,log(msalb))+a\_2*delta(1,log(ipc\_tot))+delta(1,af\_eq\_rdb\_s14\_v)-a\_0*lag(af\_eq\_rdb\_s14\_v,-1)$
+* $eq\_cf\_s14:delta(1,log(cf\_s14))=b\_cst+b\_0*(log(lag(cf\_s14,-1))-b\_lt2*log(lag(pa,-1))-b\_lt1)+b\_1*delta(1,log(pa))+b\_2*delta(1,log(emploi))+delta(1,af\_eq\_cf\_s14)-b\_0*lag(af\_eq\_cf\_s14,-1)$
+* $eq\_fbcf\_s11:delta(1,log(fbcf\_s11))=c\_cst+c\_0*(log(lag(fbcf\_s11,-1))-c\_lt2*log(lag(va\_v,-1))-c\_lt1)+c\_2*dummy\_18\_q2+c\_3*dummy\_18\_q3+c\_4*dummy\_18\_q4+c\_1*delta(1,log(va\_v))+delta(1,af\_eq\_fbcf\_s11)-c\_0*lag(af\_eq\_fbcf\_s11,-1)$
+* $eq\_fbcf\_s14:delta(1,log(fbcf\_s14))=d\_cst+d\_0*(log(lag(fbcf\_s14,-1))-d\_lt2*log(lag(px\_immo,-1))-d\_lt3*tendance-d\_lt1)+d\_1*delta(1,log(px\_immo))+d\_2*delta(1,log(ind\_btp))+delta(1,af\_eq\_fbcf\_s14)-d\_0*lag(af\_eq\_fbcf\_s14,-1)$
+* $eq\_smpt\_s11:delta(1,log(smpt\_s11))=e\_cst+e\_0*(log(lag(smpt\_s11,-1))-e\_lt2*log(lag(dfl\_cf\_s14,-1))-e\_lt3*dummy\_crise\_fi-e\_lt1)+e\_1*delta(1,log(dfl\_cf\_s14))+e\_2*delta(1,log(productivite))+e\_3*dummy\_crise\_fi+delta(1,af\_eq\_smpt\_s11)-e\_0*lag(af\_eq\_smpt\_s11,-1)$
+* $eq\_emploi:delta(1,log(emploi))=f\_cst+f\_0*(log(lag(emploi,-1))-f\_lt2*log(lag(pib,-1))-f\_lt1)+f\_1*delta(1,log(lag(emploi,-1)))+f\_2*delta(1,log(lag(emploi,-2)))+f\_3*delta(1,log(pib))+delta(1,af\_eq\_emploi)-f\_0*lag(af\_eq\_emploi,-1)$
+* $eq\_ipc\_alim:delta(1,log(ipc\_alim))=g\_cst+g\_0*(log(lag(ipc\_alim,-1))-g\_lt1-g\_lt2*log(lag(brent,-1))-g\_lt3*log(lag(tcen,-1)))+delta(1,af\_eq\_ipc\_alim)-g\_0*lag(af\_eq\_ipc\_alim,-1)$
+* $eq\_ipc\_nrj:delta(1,log(ipc\_nrj))=h\_cst+h\_0*(log(lag(ipc\_nrj,-1))-h\_lt1-h\_lt2*log(lag(petrole,-1))-h\_lt3*log(lag(brent,-1)))+h\_1*delta(1,log(petrole))+h\_2*delta(1,log(brent))+delta(1,af\_eq\_ipc\_nrj)-h\_0*lag(af\_eq\_ipc\_nrj,-1)$
+* $eq\_ipc\_tot:delta(1,log(ipc\_tot))=i\_cst+i\_0*(log(lag(ipc\_tot,-1))-i\_lt1-i\_lt2*log(lag(csu\_s11,-1)))+i\_1*delta(1,log(csu\_s11))+i\_2*delta(1,log(ipc\_nrj))+i\_3*delta(1,log(ipc\_alim))+delta(1,af\_eq\_ipc\_tot)-i\_0*lag(af\_eq\_ipc\_tot,-1)$
+* $eq\_m:delta(1,log(m))=j\_cst+j\_0*(log(lag(m,-1))-j\_lt1-j\_lt2*log(lag(df,-1)))+j\_1*delta(1,log(df))+j\_2*delta(1,log(tcen))+delta(1,af\_eq\_m)-j\_0*lag(af\_eq\_m,-1)$
+
+## Création de l'objet thor.model
+
+A partir du fichier `.txt` contenant le système d'équation nous pouvons créer l'objet `thor.model` regroupant toutes les informations utiles à la résolution du modèle. Quand le modèle est correctement rédigé, on peut voir apparaitre les différentes étapes de progression de construction dans la console. La console indique les variables entrées dans les *endogènes*, *exogènes* ou *coefficient* mais non-utilisées dans les équations. Elles peuvent être supprimées mais elles n'empêchent pas le modèle d'être correctement créé.
+
+`create_model()` prend en argument :
+
+* `model_name` : le nom souhaité du modèle
+* `model_source` : le chemin d'accès au fichier `.txt`
+
+Il est également possible avec d'autre argument de créer directement le modèle dans la fonction sans passer par un fichier source.
+
+```{r creation modele}
+#Création du modèle
+
+create_model("PF_model", model_source = "C:/Users/ludovicg/Documents/R/ludovic/input/PF_model.txt")
+```
+
+Pour davantage de précisions sur la rédaction du fichier texte, le traitement du modèle par `Tresthor`, l'algorythme de résolution et l'objet thor.model, se référer au [guide de l'utilisateur](https://www.tresor.economie.gouv.fr/Content/other/Opale/manuel_tresthor.html).
+
+## Initialisation manuelle des *endogènes*
+
+Avant de pouvoir utiliser les fonctions de résolution du modèle, nous devons initialiser les *endogènes* dont on ne connait pas les observations. Le solver requiert en effet une ligne d'observation complète à la période précédent la première période de résolution. Ce travail est lourd en code et chronophage car il consiste a reprendre les équations du modèle. Avec ce système d'initialisation nous ne pouvons obtenir une ligne complète qu'à partir du 4^ème^ trimestre de la base de données. En effet certaines équations contiennent des variables retardées qui sont elle-même déterminées par des variables retardées. Ainsi, dans cet exemple, les observations commencent au premier trimestre de 2005 mais il n'est possible de résoudre le sytème qu'à partir du premier trimestre de 2006, avec donc le 4^ème^ trimestre de 2005 comme première observation complète. La DG trésor ne réalise pas cette étape car la base de données d'origine est complète sur la période d'estimation, elle comprend en effet toutes le observations concernant les *exogènes* mais aussi les *endogènes.* Ils ne leur reste donc plus qu'à déterminer les *coefficients économétriques*. 
+
+Nous calculons ainsi manuellement toutes les variables *endogènes* en reprenant l'ordre des équations du fichier `.txt sur l'entiereté de la base de données (la période de prévision ne se calculera pas étant donné que les *exogènes* sont manquantes). En effet, nous avons besoin de la valeur des *endogènes* pour plusieurs étapes. D'abord, l'estimation requiert de connaître toutes les observation sur la période d'estimation des variables *hybrides* comme nous l'avons préciser plus haut. De plus, nous aurons besoin de ces données pour la prévision. La seule étape ou nous pourrions calculer les *endogènes* que sur un nombre limité de période est l'étape de recalcul. Cependant, nous verrons  que cette étape est superflue. De plus, cette étape nécessite d'avoir estimer, donc toutes les données concernant les variables *hybrides* sont de toutes façon requises.
+
+Nous avons du prendre des décisions arbitraires afin d'initialiser les *endogènes*. En effet, on ne peut pas toujours répliquer manuellement les équations du modèle de base. D'abord, si l'équation contient un retard d'une période sur elle-même, alors il faut au moins fixer une première valeur arbitrairement. Ensuite même en ayant fait cela, on ne peut pas directement définir la variable avec l'équation contenant le retard car R n'itère pas sans boucle. Par exemple si on définit manuellement `dfl_cf_s14` égal à 1 à la première période (NA sur le reste des données) puis on initialise avec la formule suivante du modèle: `dfl_cf_s14=lag(dfl_cf_s14,1)*(1+ipc_tot_vt)`, alors la variable retardée ne sera pas la valeur itérer mais seulement NA. Il faut donc trouver des solutions alternative ou bien il faut itérer (possiblement couteux en temps d'exécution avec un `for i in`) (Je n'ai de plus pas trouver le moyen d'itérer sur les lignes avec `data table`.).
+
+Pour une utilisation normale de l'outil, il serait nécessaire de collecter une majorité de données (et principalement de données en volume) en amont (même si elles sont endogènes) afin de ne pas réaliser ce processus d'initialisation qui peut être vecteur d'erreurs.
+
+Nous détaillons maintenant le processus employé pour initialiser les variables *endogènes*:
+
+* **1^ère^ étape** : Reprendre les équations dans le même ordre que l'ordre des équations dans le fichier `.txt`. Cet ordre n'est pas unique mais permet de calculer les *endogènes* dans leur ordre logique. Nous n'incluons pas dès maintenant les équations des résidus car leur calcul sera automatisé dans la suite du code et nous n'incluons pas non plus les équations économétriques dont les coefficients ne sont pas encore définis à ce stade.
+
+* **2^ème^ étape** : Echange *endogène*/*exogène*. L'ordre établi dans le fichier texte ne permet pas tout à fait d'initialiser car, en partie, nous avions laissé les équations économétriques à la fin du fichier pour des raisons pratiques et de lisibilité. De plus, nous ne pouvons pas utiliser les équations économétriques car elles ne sont pas estimées. Or, nous avons besoin de connaitre les observations des variables *hybrides*, i.e. des variable *endogènes* des équations économétriques, afin d'estimer les *coefficients économétriques*. Il s'agit alors d'échanger l'*endogène* avec une des *exogènes* de certaines équations comptables afin de retrouver les observations des *endogènes* des équations économétriques (voir la liste ci-dessous). Cela ne concerne pas les 3 indices de prix à la consommation ainsi que les variables `emploi` et `rdb_s14_v`. Ces 5 variables *endogènes* d'équations économétriques sont directement observées ou construites en amont. Le revenu disponible brut est pour l'instant un cas spécial comme nous l'avons précisé plus tôt. Dans le cas ou il serait observé, il devrait resté non concerné par cette étape. Dans le modèle de base Ces échanges *endogènes*/ *exogènes* impliquent de veiller à ce que l'ordre de calcul soit réalisable.
+
+  *  `cf_s14` : `cf_s14` devient l'endogène dans `ec_cf_s14_v` (car on connaît `cf_s14_v`)
+  *  `fbcf_s11` : `fbcf_s11` devient l'endogène dans `ec_fbcf_s11_v` (car on connaît `fbcf_s11_v`)
+  *  `fbcf_s14` : `fbcf_s14` devient l'endogène dans `ec_fbcf_s14_v` (car on connaît `fbcf_s14_v`)
+  *  `smpt_s11` : `smpt_s11` devient l'endogène dans `ec_rs_s11_v` (car on connaît `rs_s11_v`)
+  *  `m` : `m` devient l'endogène dans `ec_m_v` (car on connaît `m_v`)
+
+
+* **3^ème^ étape** : Réétablir un ordre calculable. Certain échanges entre variables *endogènes*/*exogènes* ont pu rendre l'ordre des équations établi dans le fichier `.txt` inopérant pour le calcul. Il s'agit donc de changer la place des équations qui pourraient bloquer le calcul en cascade. Nous avons adapter l'ordre des équations du fichier `.txt` pour ne pas qu'un tel cas se produise, mais il est possible de trouver un ordre possible dans le fichier `.txt` qui ne soit pas calculable dans cette initialisation. Par exemple si `csu_s11:=smpt_s11/productivite` précède `smpt_s11:=rs_s11_v/eff_sal_etp`, le calcul ne pourra pas se faire dans l'initialisation alors que `ec_csu_s11` peut très bien être avant `ec_rs_s11_v` dans le fichier `.txt`. L'échange d'*exogène*/*endogène* entre `smpt_s11` et `rs_s11_v` est à l'origine de ce problème.
+
+* **4^ème^ étape** : Retirer les variables retardées posant des probèmes d'itérations. Tous les `lag` ne posent pas de problèmes. Si le retard n'est pas sur la variable *endogène* de l'équation en question comme pour `ec_ipc_tot_vt`, alors la variable est calculable (nous avons utilisé la fonction `vt()` pour calculer `ipc_tot`, cette fonction permet de calculer un taux de croissance). Il faut simplement faire attention, si on passe par un copier-coller de l'équation du fichier `.txt` à la partie initialisation du fichier `src/tresthor`, de changer le deuxième argument de la fonction `lag` dans l'équation par une valeur positive car le fichier `.txt` ne traite pas la fonction `lag` de la même façon (si le deuxième argument était -1 dans le fichier `.txt` alors il doit être égal à 1 quand directement traité par R). Pour les *endogènes* caculées sur leur propre retard (e.g. `dfl_fbcf_s11=lag(dfl_fbcf_s11,-1)*(1+ipc_tot_vt)`), il s'agit de trouver une solution alternative pour calculer la variable. Pour `ec_dfl_fbcf_s11`, on choisit simplement de caler `dfl_fbcf_s11` sur l'inflation totale. Comme vu précedemment, la définition des déflateurs est largement à améliorer. Pour les équations `ec_pib`, `ec_fbcf`, `ec_dihs`, `ec_dihs`, `ec_di`, `ec_df`, nous sommons leur déterminant au lieu de passer par l'étape intermédiaire des contributions, qui requiert d'utiliser un retard sur l'*endogène* elle-même. Une question s'est posée suite à cette opération : faut-il laisser les variations de stock en valeur dans le PIB en volume?.
+
+* **5^ème^ étape** : Ne pas inclure certaine équations. `ec_eff_sal_etp` est inutile pour l'initialisation car on oberve chaque variable de l'équation.
+
+
+```{r initialisation}
+#Inclusion des variables du modèle manquantes dans le data table
+
+dt_pf[,setdiff(names(PF_model@var_map),names(dt_pf)):=as.numeric(NA)]
+
+#Initialisation des variables endogènes
+
+dt_pf[,ipc_tot_vt := vt(ipc_tot)][,
+       dfl_fbcf_s11:=ipc_tot/100][,
+       dfl_fbcf_s14:=px_immo/100][,
+       dfl_cf_s14:=ipc_tot/100][,
+       cf_s14:=cf_s14_v/dfl_cf_s14][,
+       cf_v:=cf_s13_v+cf_s14_v][,
+       fbcf_s11:=fbcf_s11_v/dfl_fbcf_s11][,
+       fbcf_s14:=fbcf_s14_v/dfl_fbcf_s14][,
+       fbcf_v:=fbcf_s11_v+fbcf_s13_v+fbcf_s14_v][,
+       m:=m_v/dfl_m][,
+       pib_v:=cf_v+fbcf_v+x_v-m_v+vs_v][,
+       cf_s13:=cf_s13_v/dfl_cf_s13][,
+       cf:=cf_s13+cf_s14][, 
+       fbcf_s13:=fbcf_s13_v/dfl_fbcf_s13][,
+       fbcf:=fbcf_s11+fbcf_s13+fbcf_s14][,
+       x:=x_v/dfl_x][,
+       cont_cf_s13:=(cf_s13/lag(cf_s13,1)-1)*(lag(cf_s13_v,1)/lag(pib_v,1))][,
+       cont_cf_s14:=(cf_s14/lag(cf_s14,1)-1)*(lag(cf_s14_v,1)/lag(pib_v,1))][,
+       cont_cf:=cont_cf_s13+cont_cf_s14][,
+       cont_fbcf_s11:=(fbcf_s11/lag(fbcf_s11,1)-1)*(lag(fbcf_s11_v,1)/lag(pib_v,1))][,
+       cont_fbcf_s13:=(fbcf_s13/lag(fbcf_s13,1)-1)*(lag(fbcf_s13_v,1)/lag(pib_v,1))][,
+       cont_fbcf_s14:=(fbcf_s14/lag(fbcf_s14,1)-1)*(lag(fbcf_s14_v,1)/lag(pib_v,1))][,
+       cont_fbcf:=cont_fbcf_s11+cont_fbcf_s13+cont_fbcf_s14][,
+       cont_x:=(x/lag(x,1)-1)*(lag(x_v,1)/lag(pib_v,1))][,
+       cont_m:=-(m/lag(m,1)-1)*(lag(m_v,1)/lag(pib_v,1))][,
+       cont_xm:=cont_x+cont_m][,
+       cont_vs:=(vs_v-lag(vs_v,1))/lag(pib_v,1)][,
+       dt_pib:=cont_cf+cont_fbcf+cont_x+cont_m+cont_vs][,
+       pib:=cf+fbcf+x-m+vs_v][,
+       dfl_pib:=pib_v/pib][,
+       dihs_v:=cf_v+fbcf_v][,
+       di_v:=dihs_v+vs_v][,
+       df_v:=di_v+x_v][,
+       dihs:=cf+fbcf][,
+       di:=dihs+vs_v][,
+       df:=di+x][,
+       cont_dihs:=cont_cf+cont_fbcf][,
+       cont_di:=cont_dihs+cont_vs][,
+       cont_df:=cont_di+cont_x][,
+       epargne:=(rdb_s14_v)-cf_s14_v][,
+       tx_epargne:=epargne/rdb_s14_v][,
+       pa:=rdb_s14_v/dfl_cf_s14][,
+       productivite:=pib/emploi][,
+       smpt_s11:=rs_s11_v/eff_sal_etp][,
+       csu_s11:=smpt_s11/productivite][,
+       tx_marge_macro:=(pib_v-rs_s11_v)/pib_v][,
+       tx_inv:=fbcf_v/pib_v]
+```
+
+## Définition des informations nécessaires pour estimer 
+
+Des informations doivent être fournies dans la list `info_equations`. L'utilisateur paramètre en partie cette fonction en décidant au début de `Main.R` de la période d'estimation. Si la période d'estimation souhaitée diffère selon les équations, il faudra le spécifier directement dans cette fonction. En fait le paramétrage de la période d'estimation concerne d'avantage le modélisateur que l'utilisateur mais on laisse le réglage général dans "Paramètre Utilisateur". Pour chaque équation, il faut préciser :
+
+* `endogenous_name` : le nom de la variable expliquée de l'équation.
+* `estim_end` et `estim_start` : les périodes de début et de fin d'estimation.
+* `coef_lt` : vecteur contenant les coefficients de la partie long terme de l'équation. Mettre `NULL` si il n'y a pas de long terme à estimer.
+* `const` : `TRUE` s'il faut estimer une constante dans la partie court-terme ou sur l'ensemble de l'équation s'il n'y a pas de long terme estimé par les MCO, `FALSE` sinon. 
+
+
+```{r info equations}
+
+#Informations équations économétriques
+
+info_equations <- list(
+  
+  eq_rdb_s14_v=
+    
+    list(endogenous_name="rdb_s14_v",
+         
+         residual_name="af_eq_rdb_s14_v",
+         
+         coeff_lt=c("a_lt1","a_lt2"),
+         
+         estim_start=as.Date(date_debut_estim),
+         
+         estim_end=as.Date(date_fin_estim),
+         
+         const=T)
+  ,
+  eq_cf_s14=
+    
+    list(endogenous_name="cf_s14",
+         
+         residual_name="af_eq_cf_s14",
+         
+         coeff_lt=c("b_lt1","b_lt2"),
+         
+         estim_start=as.Date(date_debut_estim),
+         
+         estim_end=as.Date(date_fin_estim),
+         
+         const=T)
+  ,  
+  eq_fbcf_s11=
+    
+    list(endogenous_name="fbcf_s11",
+         
+         residual_name="af_eq_fbcf_s11",
+         
+         coeff_lt=c("c_lt1","c_lt2"),           
+         
+         estim_start=as.Date(date_debut_estim),
+         
+         estim_end=as.Date(date_fin_estim),
+         
+         const=T)
+  ,
+  eq_fbcf_s14=
+    
+    list(endogenous_name="fbcf_s14",
+         
+         residual_name="af_eq_fbcf_s14",
+         
+         coeff_lt=c("d_lt1","d_lt2","d_lt3"),
+         
+         estim_start=as.Date(date_debut_estim),
+         
+         estim_end=as.Date(date_fin_estim),
+         
+         const=T)
+  ,
+  eq_smpt_s11=
+    
+    list(endogenous_name="smpt_s11",
+         
+         residual_name="af_eq_smpt_s11",
+         
+         coeff_lt=c("e_lt1","e_lt2"),
+         
+         estim_start=as.Date(date_debut_estim),
+         
+         estim_end=as.Date(date_fin_estim),
+         
+         const=T)
+  ,
+  eq_emploi=
+    
+    list(endogenous_name="emploi",
+         
+         residual_name="af_eq_emploi",
+         
+         coeff_lt=c("f_lt1","f_lt2"),
+         
+         estim_start=as.Date(date_debut_estim),
+         
+         estim_end=as.Date(date_fin_estim),
+         
+         const=T)
+  ,
+  eq_ipc_alim=
+    
+    list(endogenous_name="ipc_alim",
+         
+         residual_name="af_eq_ipc_alim",
+         
+         coeff_lt=c("g_lt1","g_lt2","g_lt3"),
+         
+         estim_start=as.Date(date_debut_estim),
+         
+         estim_end=as.Date(date_fin_estim),
+         
+         const=T)
+  ,
+  eq_ipc_nrj=
+    
+    list(endogenous_name="ipc_nrj",
+         
+         residual_name="af_eq_ipc_nrj",
+         
+         coeff_lt=c("h_lt1","h_lt2","h_lt3"),
+         
+         estim_start=as.Date(date_debut_estim),
+         
+         estim_end=as.Date(date_fin_estim),
+         
+         const=T)
+  ,
+  eq_ipc_tot=
+    
+    list(endogenous_name="ipc_tot",
+         
+         residual_name="af_eq_ipc_tot",
+         
+         coeff_lt=c("i_lt1","i_lt2"),
+         
+         estim_start=as.Date(date_debut_estim),
+         
+         estim_end=as.Date(date_fin_estim),
+         
+         const=T)
+  ,
+  eq_m=
+    
+    list(endogenous_name="m",
+         
+         residual_name="af_eq_m",
+         
+         coeff_lt=c("j_lt1","j_lt2"),
+         
+         estim_start=as.Date(date_debut_estim),
+         
+         estim_end=as.Date("2016-12-31"),
+         
+         const=T)
+)
+```
+
+## Définition des résidus exogènes et endogènes
+
+Nous définissons les résidus exogènes comme étant égaux à 0 et nous initialisons les résidus endogènes. Cette étape constitue donc la suite de l'initialisation mais est réalisée après l'utilisation de `info_equations` afin d'automatiser le processus. Les résidus endogènes sont définis comme la somme cumulée des résidus exogènes afin de correspondre à l'équation du modèle en fichier `.txt` sans pour autant inclure d'itération. Cette étape peut sembler à ce stade inutile étant donné qu'on pourrait inclure directement les résidus exogènes dans les MCE. Néanmoins, par la suite les résidus endogènes auront de l'intérêt. Dans le cas ou les résidus exogènes prendrait une valeur non nulle à une période, cette valeur serait répliquée sur le reste de la série des résidus endogènes. Si on souhaite modéliser un choc transitoire, il faut donc annuler le choc en appliquant la valeur inverse à la période suivante.
+
+```{r définition résidus}
+#Résidus exogènes
+
+dt_pf[,paste0("afusr_",names(info_equations)):=0]
+
+#Résidus endogènes
+
+dt_pf[,(paste0("af_",names(info_equations))):=lapply(.SD, function(x) cumsum(x)), .SDcols=paste0("afusr_",names(info_equations))]
+
+```
+
+## Modification statut base de données
+
+On applique 2 retraitement au `data table`. Le premier est nécessaire et consiste à transformer le `data table` en `data frame`. En effet le format `data table` n'est pas supporté par le package `Tresthor`. Ce point n'a pas été étudié en profondeur mais il semblerait que ce soit dû à la méthode de construction des fonctions du package `Tresthor`. Le deuxième retraitement permet simplement un accès plus facile aux variables en visualisation directe. La visualisation directe peut être extrêmement utile pour déceler une erreur dans la construction du modèle, par exemple pour détecter un problème d'échelle. Il est toujours important d'éplucher les données à chaque étape afin de s'assurer de la cohérence du travail réalisé.
+
+
+```{r statut base de donnee}
+#Passage en data frame
+
+setDF(dt_pf)
+
+#Variable par ordre alphabétique
+
+dt_pf <- dt_pf[,order(names(dt_pf))]
+```
+
+## Estimation 
+
+La fonction quick_estim_all() permet d'estimer les coefficients économétrique de chaque équation économétrique, elle prend en argument :
+
+  * `infos_equations` :  l'objet créé par `info_equations()`
+  * `thoR.model` : le modèle qui contient les équations 
+  * `database` : la base de données qui rassemble toutes les données nécessaires aux estimations
+  * `index_time` : la colonne usuelle qui sert d'indicateur temporel (`date` dans notre cas)
+
+
+En cas d'erreur rencontrée sur l'estimation d'une équation, `quick_estim_all()` signale l'échec et poursuit ses estimations des autres équations de la liste.
+
+A l’issue de la fonction `quick_estim_all()`, les coefficients sont ajoutés comme variables à la base de données (la base de données est donc maintenant complète sur la période d'estimation), et les objets thoR.equation sont créés dans l’environnement global. Des résultats d’estimation complets apparaissent dans la console (permettant notamment d'étudier la significativité des résultats). 
+
+Nous estimons les *coefficients économétriques* sur la base des données observées à partir du premier trimestre de 2006. Il est possible d'estimer sur une période débutant à une date antérieure de la date à laquelle le système peut être résolue. En effet, il suffit que les données concernant les variables des équation économétrique soient complètent. La date de fin d'estimation est pour une majorité d'équation le dernier trimestre de 2018 car dernier trimestre observé dans notre base. Cependant, nnous choisissons une date antérieure pour certaines équations économétriques comme expliqué dans le rapport `doc/Rapport_des_tests_econometriques.Rmd`. Dans tous les cas il s'agit de choisir de façon optimal la période d'estimation. Une période trop courte peut entrainer un manque d'information statistique alors qu'une période trop longue peut englober des ruptures de comportement identifiées. Il est nécessaire de limiter les possibles changement de comportements au cours de la période
+d’estimation.
+
+Notez que cet outil d’estimation est proposé pour faciliter l’utilisation du solveur, mais que les coefficients peuvent être inscrits en dur dans le modèle ou directement déclarés dans la base de données si une procédure économétrique davantage sophistiquée est nécessaire.
+
+```{r estimation}
+#Estimation
+
+dt_pf <- quick_estim_all(info_equations,
+                         thor_model = PF_model, 
+                         database	= dt_pf, 
+                         index_time = "date")
+```
+
+Nous étudierons les résultats des estimations dans `doc/Rapport_des_tests_econometriques.Rmd`. Il faut néanmoins noter que, pour une raison inconnue, l'outil ne calcule parfois pas les écarts types des coefficients de long-terme. 
+
+A noter : le système d'équation n'a pas d'influence sur les estimations. Les résultats de l'estimation d'une équation ne seront pas impactés par une modification effectuée sur le modèle (hors l'équation en question). Chaque estimation d'équation économétriques est indépendante des autres estimations d'équations économétriques et du reste du modèle plus généralement. Ainsi l'estimation d'une équation ne dépend que des données observées des variables de l'équations ainsi que de la période d'estimation.
+
+Nous détenons maintenant toutes les données des variables incluent dans le modèle sur la période pré-prévision. 
+
+## Fonction de vérification
+
+Nous exposons trois fonctions de vérifications à titre indicatif. Elles peuvent s'avérer utile dans le cas ou le programme échoue. Nous définissons `horizon_test` pour l'utilisation de ces fonctions.
+
+* La première fonction, `data_model_checks()`,  vérifie que toutes les variables du modèle sont dans la base de données. Cependant, grâce à la première ligne de code dans la partie "Initialisation manuelle des *endogènes*", toutes les variables sont normalement automatiquement présentes dans le modèle.
+* La seconde fonction, `time_solver_test_run`, permet de tester si le solveur peut fonctionner sur des périodes demandées. Cette fonction ne résout pas le modèle, mais fait juste tourner les fonctions de passage du symbolique au numérique du modèle. Elle permet de tester si les calculs peuvent être effectués avec les données d’une base. Un diagnostique utile fourni par cette fonction est de détecter si certaines variables ont des valeurs en dehors du domaine de définition des fonctions qui les mobilisent (par exemple des 0 alors que la variable est utilisée en logarithme.)
+* La troisième fonction, `na_report_variables_times`, vérifie qu’un set de variables est bien renseigné sur toutes les périodes demandées (sans `NA`). La fonction retourne le set de variables pour lesquelles des `NA` (observations manquantes) ont été trouvé. La fonctionne ne retourne rien si tout les données sont présentes sur la période demandée.
+
+```{r fonctions de vérifications}
+
+horizon_test <-
+  (seq.Date(
+    as.Date(date_debut_estim) + 1,
+    to = as.Date(date_fin_estim) + 1,
+    by = "quarter"
+  ) - 1) %>%
+  as.Date(.)
+
+data_model_checks(thor_model = PF_model,
+                  database = dt_pf,
+                  quiet = F)
+
+time_solver_test_run(
+  PF_model,
+  database = dt_pf,
+  index_time = "date",
+  times = as.Date(horizon_test)
+)
+
+na_report_variables_times(
+  dt_pf,
+  times = as.Date(horizon_test),
+  variables = names(dt_pf),
+  index_time = "date"
+)
+```
+
+
+## Utilisation du solver et prévision
+
+Les 3 fonctions de vérifications précédentes nous indiquent que tous les indicateurs sont au vert pour lancer le solver. 
+
+La fonction `thor_solver()` prend en argument :
+ 
+* `model` : l'objet `thoR.model` à utiliser.
+* `first_period` : la première période de projection. Attention à ne pas donner la période correspondant à la première observation de la base de données.
+* `last_period` : la dernière période de projection.
+* `database` : la base de données complète
+* `index_time` : la variable qui sert d'indicateur temporel (first_period et last_period doivent en faire partie). Par défaut, cette variable est `date`. 
+
+Plus d'options sont disponibles pour cette fonction, voir le [guide de l'utilisateur](https://www.tresor.economie.gouv.fr/Content/other/Opale/manuel_tresthor.html).
+
+Pour résoudre le modèle, le solveur charge le modèle et les fonctions spécifiques créées. Puis, il résout par un algorithme de Newton-Raphson chaque bloc à chaque période, en se basant sur l’observation précédente comme critère d’initialisation. Les périodes sont estimées séquentiellement de manière à prendre en compte les estimations des *endogènes* sur les périodes antérieures, si celles-ci font partie de l’horizon de projection demandé.
+
+La fonction retourne la base de données avec les *endogènes* modifiées par leurs valeurs en prévision.
+
+### Recalcul des données
+
+Nous réalisons ici une étape à titre indicatif : le recalcul des *endogènes* sur la base des *exogènes* observées sur la période d'estimation.  Nous pouvons utiliser le solveur à partir du premier trimestre 2006 pour recalculer les *endogènes* à partir, en partie, des équations économétriques estimées précédemment. 
+
+Ce recalcul ne produira pas exactement les mêmes résultats que l'étape d'"Initialisation" étant donné que le solver utilise ici les équations économétriques avec les *coefficients économétriques* estimés précédemment. Nous ne nous baserons pas sur cette nouvelle base de données pour la prévision étant donné que cela impliquerait de prévoir en partant potentiellement d'un décalage initial avec la réalité. Il est toujours plus opportun d'utiliser des observations que des données recalculées. Cette étape n'a ainsi pas d'intérêt pour la suite, si ce n'est d'observer l'écart avec la réalité.
+
+```{r donnees recalculee}
+donnees_recalculee <- thor_solver(
+  model = PF_model,
+  first_period = as.Date(date_debut_estim),
+  last_period = as.Date(date_fin_estim),
+  database = dt_pf, #Nous partons de la base complète avec les coefficients estimés
+  index_time = "date"
+)
+```
+
+### Simulation
+
+Les résidus jouent un rôle important dans le modèle. Sur le passé, ils permettent d’assurer l’équilibre du modèle. Une relation économétrique n’est jamais parfaite, il y a toujours un écart entre la variable expliquée et les variables explicatives. Avant de lancer la prévision par un modèle il convient donc de recaluler la valeur de ces résidus sur le passé, car on prend les données observées comme telles. 
+
+Pour ce faire, on déclare les *endogènes* des équations économétriques comme variables *exogènes* et les résidus comme variables *endogènes*, puis on résout pour la variable résiduelle sur le passé. Les données sont alors correctement calibrées pour la prévision. Il y a plusieurs moyens de faire cela avec `Tresthor` :
+
+* soit on crée un modèle inversé en utilisant la fonction model_endo_exo_switch() en passant l’ensemble des variables résiduelles des équations du modèle en variables endogènes et les variables expliquées de ces équations en exogène. On résoud ensuite le modèle sur le passé.
+
+* soit on utilise pour chaque équation où les résidus apparaissent la fonction thor_equation_solver() sur le passé en créant les équations réciproques où le résidu est endogène
+
+* soit on utilise la fonction simulate_equation() sur chaque équation (en laissant le résidu exogène) sur le passé, le résidu étant automatiquement recalculé par cette fonction.
+
+Nous utilisons dans notre cas la fonction `simulate_equation()`.
+
+Simuler une équation revient à calculer la valeur de l’*endogène* telle que prédite par l’équation, c’est-à-dire en supposant que les résidus sont nuls. Les résidus seront ensuite recalculés par la différence entre l'*endogène* observée et simulée.
+
+`simulate_equation()` prend en argument :
+
+* `thor_equation` : un objet thoR.equation
+* `database` :  une base de données qui contient toutes les variables et coefficients de l’équation
+* `start_sim` et `end_sim`: période sur laquelle il faut simuler l’équation, période appartenant à `index_time` (indicateur temporel usuel)
+* `residual_var` : le nom de la variable résiduelle telle qu’elle apparaît dans l’équation.
+
+La fonction retourne une base de données avec :
+
+* les variables *exogènes* et les coefficients de l'équation, 
+* les résidus recalculés dans une variable nommée `residuals`
+* la variable *endogène* observée, c'est-à-dire sa valeur avant la simulation, dans une variable nommée `observed`
+* la variable *endogène* simulée, dans une variable nommée `simulated`. Pour toute date antérieure à `start_sim`, la valeur de la variable simulée est égale à l'observée.
+* des variables calculées pour l'observé et le simulé
+
+  + `g_obs` et `g_sim` sont les "vrais" taux de croissance des variables
+  + `dlog_obs` et `dlog_sim` sont les taux de croissance en diff(log)
+  + `d_obs` et `d_sim` les différences en niveau des variables
+  
+* `residual.contrib` est la différence du résidu entre $t-1$ et $t$. Pour les équations en $diff(log)$, cela correspond à la contribution des résidus au taux de croissance en $diff(log)$. 
+
+Il n'y a pas de fonction pour simuler toutes les équations et retourner une base de données complétée directement. Nous choisissons donc de suivre la méthode appliquée dans le [guide appliqué de prévision](https://www.tresor.economie.gouv.fr/Content/other/Opale/application_tresthor_modele_uk.html). Avec `lapply`, nous itérons sur les noms des équations économétriques afin d'obtenir les résidus de chacune d'elle. Nous fusionons ensuite ces résultats à `dt_pf` afin d'obtenir une base complète pour la prévision. Nous laissons de côté les autres résultats de la fonction tels que l'*endogène* simulé ou les taux de croissance inutiles pour la prévision. 
+
+```{r simulation}
+
+#Simulation et fusion des résidus simulés à dt_pf
+
+simulation <- lapply(names(info_equations),function(x) {
+  y <- simulate_equation(
+    thor_equation=get(x),
+    database=dt_pf, #Nous partons de la base complète avec les coefficients estimés
+    start_sim=as.Date(date_debut_estim),
+    end_sim=as.Date(date_fin_estim),
+    index_time="date",
+    residual_var=info_equations[[x]]$residual_name) %>%
+    as.data.frame() %>%
+    .[,c("date","residual")]
+  colnames(y) <- c("date",info_equations[[x]]$residual_name)
+  return(y)}
+) %>%
+  Reduce(function(...) merge(..., all=TRUE),.,
+         dt_pf[,which(!colnames(dt_pf)%in%lapply(info_equations, 
+                                                 function(x) x$residual_name))])
+```
+
+### Prévision
+
+Du fait de la construction des équations de résidus *endogènes* du notre modèle, les résidus seront en fait constant sur la période de prévision et égaux aux résidu de la dernière période avant prévision. Par exemple, si on prend l'équation : $$ec\_af\_eq\_rdb\_s14\_v:af\_eq\_rdb\_s14\_v=lag(af\_eq\_rdb\_s14\_v,-1)+afusr\_eq\_rdb\_s14\_v$$, `af_eq_rdb_s14_v` est égal à son retard plus le résidu exogène mais nous l'avons définit comme étant nulle dans ce scénario expérimental.
+
+Nous avons traité les résidus des équations économétriques comme des endogènes dans l'étape de simulation mais il reste une variable qu'on souhaiterait basculer d'*exogène* à *endogène* afin de passer en prévision : les variations de stock dans l'équation du PIB. Pour ce faire il est nécessaire de basculer une variable d'*endogène* à *exogène*. En effet, nous ne rajoutons pas d'équation et nous devons toujours avoir exactement le même nombre de variables *endogènes* et d'équations. Nous mutons ainsi `cont_vs`, la variable de contribution des variations de stocks au PIB, en *exogène*. Cette modification nous permet de déterminer indirectement les variations de stock comme résidu de l'équation du PIB. Comme `cont_vs` est maintenant une variables exogène en prévision il faut faire une hypothèses de scénario à son sujet aux même titre que toutes les autres variables *exogènes*. A titre expérimental, nous faisons l'hypothèse que la contribution des résidus à la croissance des *endogènes* est nulle en prévision. En effet, comme les équations économétriques sont modélisées en taux de croissance (en $diff(log)$), c’est la différence sur une période des variables résiduelles qu’il faut neutraliser. Cela revient à geler les résidus sur leur dernière valeur avant la période de projection (comme ce que nous avons fait pour les résidus des équations économétriques).
+
+Afin de réaliser cette modification, on utilise la fonction `model_endo_exo_switch()`, qui prend en argument :
+
+* `base_model` : un objet de type thor.model,
+* `new_model_name` : le nom du nouveau model  
+* `new_endo` : la variable à faire basculer d'*exogène* à *endogène*,
+* `new_exo` : la variable à faire basculer d'*endogène* à *exogène*
+
+Il faut noter que les variations de stocks sont modélisés à travers une équation économétrique dans le modèle Opale, voir le [document de travail de la DG du Trésor : maquette de prévision Opale-2017](https://www.tresor.economie.gouv.fr/Articles/5fd5fc93-7068-4f7c-a846-2e55db951c62/files/a91e44aa-8109-49ef-b8e2-44d306ff9ca7). Il sera intéressant d'e voir'étudier, dans la suite des travaux, si cette équation est répliquable dans notre contexte. 
+
+Enfin, nous pouvons utiliser de nouveau la fonction `thor_solver()`, mais cette fois sur la période de prévision. Le solver va maintenant se baser sur la dernière période observée (ou plus si des variables retardées requièrent davantage d'introspection), ainsi que sur les hypothèse réalisées pour les variables *exogènes* sur toute la période de prévision. On obtient alors un jeu de données complété des données manquantes en prévision pour les variables *endogènes*. 
+
+```{r prevision}
+#Switch entre la variable de variation de stock et sa contribution au PIB
+
+model_endo_exo_switch(base_model = PF_model,
+                      new_model_name = "PF_rdb_mod_switch",
+                      new_endo = "vs_v",
+                      new_exo = "cont_vs")
+
+#Hypothèse de contribution aux variations de stock nulles en prévision
+
+simulation[horizon_prev_index, c("cont_vs")] <- 0 
+
+#Prévision
+
+prev <- thor_solver(
+  model = PF_rdb_mod_switch,
+  first_period = as.Date(date_debut_prev),
+  last_period = as.Date(date_fin_prev),
+  database = simulation, #Nous partons de la base issue de la simulation
+  index_time = "date",
+  rcpp = FALSE
+)
+```
+
+Il faut vérifier qu'il n'y a pas de saut sur les données au passage en prévision, sinon quoi cela indiquerait un problème de cohérence. Par exemple, `rs_s11_v` est observé sur la période pré-prévision mais quand même endogène donc recalculé en prévision par l'équation :`ec_rs_s11_v:rs_s11_v=smpt_s11*eff_sal_etp`. Il faut donc veiller à ce que ce recalcul soit cohérent avec les données antérieures à la période de prévision de la variable `rs_s11_v`.
+
+# Output
+
+Nous avons repris quelques exemples de tableaux et graphiques réalisables en sortie à partir des données obtenus et des objets créés. Ces représentations graphiques montrent des résultats qui ne sont pas satisfaisant au vu de l'objectif de prévision car le modèle peine à répliquer l'histoire passée des séries. Cependant, à ce stade du processys, l'objectif était de définir les méthodes et la base informatique. Nous sommes optimistes sur la performance du modèle quand les problèmes de données seront réglées.
+
+## Exemple de tableau de taux de croissance
+
+Ci dessous, nous construisons un tableau de taux de croissance du PIB et de ses déterminants du côté de la demande. On utilise ainsi la base de données issue de l'exercice de prévision : `prev`. On commence ce tableau 4 ans avant la fin de notre dernière prévision afin d'avoir une vue globale sur la dynamique en cours. `df_tableau` inclue les données en taux de croissance arrondie et au format français. On utilise ensuite la fonction `flextable()` afin d'obtenir un tableau présentable.
+
+
+```{r tableau}
+
+#Définition des séries présentées et de leur label
+
+series <- c("pib",
+            "cf","cf_s13","cf_s14",
+            "fbcf","fbcf_s13","fbcf_s11","fbcf_s14",
+            "m","x",
+            "ipc_tot")
+
+labels <- c("PIB",
+            "Consommation","..... publiques", "..... ménage",
+            "FBCF","..... publique",".... entreprises", "..... ménages",
+            "Importations","Exportations","IPC")
+
+#Construction d'un jeu de données adéquat
+
+df_tableau <- prev[,-1] %>%
+  lapply(function(x)vt(x)*100) %>%
+  as.data.frame() %>%
+  .[(nrow(prev)-4*4+1):nrow(prev),series] %>%
+  t() %>%
+  as.data.frame() %>%
+  round(digits=1) %>%
+  format(decimal.mark = ",",
+         digits = 1)
+
+rownames(df_tableau) <- labels
+df_tableau <- rownames_to_column(df_tableau)  
+
+header_annee <-
+  c("", year(prev$date[(nrow(prev) - 4 * 4 + 1):nrow(prev)])) %>% as.list()
+names(header_annee) <- colnames(df_tableau)  
+
+header_trimestre <- NULL
+for (i in ((nrow(dt_pf) - 4 * 4):nrow(prev)))
+  header_trimestre[i - (nrow(prev) - 4 * 4) + 1] <-
+  tr(prev$date[i]) 
+header_trimestre[1] <- "" 
+header_trimestre%>% as.list()
+names(header_trimestre) <- colnames(df_tableau)  
+
+#Construction du tableau
+
+df_tableau %>%
+  flextable() %>%
+  set_header_labels(values=header_trimestre) %>%
+  add_header(values=header_annee) %>%
+  merge_h(part="header") %>%
+  theme_zebra() %>%
+  align(align="center",j=2:ncol(df_tableau),part="all")
+```
+
+## Contribution des variables explicatives aux *endogènes*
+
+Les contributions des variables explicatives des équations économétriques à leur *endogène* respective peut être visualiser grâce à des fonctions incluent dans le package `Tresthor`. `dyn_contribs` et `yearly_contrib` permettent d'obtenir les données utiles à la realisation des graphiques de contribution.
+
+Nous utilisons lapply pour itérer sur le nom des équations économétriques afin d'appliquer la fonction à chaque équation économétrique.
+
+`dyn_contribs()` prend en argument :
+
+* `thor_equation` : Un objet thoR.equation
+* `database` : une base de données complète
+* `start_sim` et `end_sim`: pour indiquer la période sur laquelle il faut calculer les contributions, appartenant à index_time (indicateur temporel usuel)
+* `residual_var` : le nom de la variable résiduelle telle qu’elle apparaît dans l’équation.
+
+`yearly_contrib()` nécessite simplement d'itérer avec `lapply` sur la liste créé avec `dyn_contribs()` et de spécifier l'indexation des années avec `index_year`.
+
+Pour la visualisation nous changeons d'abord le format de date qui peut poser problème pour l'utilisation des fonctions suivantes. Le format `data.table` utilisé au début du programme laisse en effet des traces sur les formats qui peuvent avoir un impact sur le package `Tresthor`.
+
+On utilise ensuite `graph_contrib()` en précisant :
+
+* `contrib_data` : le jeu de données créé par `dyn_contribs()` ou `yearly_contrib()`
+* `start_plot ` : la date de début du graphique 
+* `end_plot ` : la date de fin du graphique
+* `index_time` : nom de la colonne qui contient l'index de temp
+* `title` : le titre du graphique
+
+```{r graphique de contribution}
+
+#Paramétrage
+
+date_debut_contribution <- "2014-03-31"
+date_fin_contribution <- "2020-12-31"
+date_debut_contribution_y <- "2014" #pour les contributions annuelles
+date_fin_contribution_y <- "2020" #pour les contributions annuelles
+
+#Calcul des contributions
+
+contrib <- lapply(names(info_equations),function(x) {
+  dyn_contribs(get(x),
+               prev,
+               as.Date(date_debut_estim),
+               as.Date(date_fin_contribution),
+               "date",
+               info_equations[[x]][["residual_name"]]) %>%
+    filter(date>=as.Date(date_debut_estim))
+}) %>%
+  setNames(.,names(info_equations)) %>%
+  as.list()
+
+contrib_an <- lapply(contrib, function(x) {
+  yearly_contrib(x,
+                 index_year=substr(x[,"date"],start=1,stop=4))
+})
+
+
+# Présentations graphiques 
+
+lapply(names(info_equations),function(x) {
+  contrib[[x]][["date"]] <<- as.Date(contrib[[x]][["date"]])}
+  ) #Changement du format de date
+
+graphiques_q<- lapply(names(info_equations),function(x) {
+  graph_contrib(
+    contrib[[x]],
+    as.Date(date_debut_contribution),
+    as.Date(date_fin_contribution),
+    "date",
+    paste0("Contributions trimestrielles : ",
+           info_equations[[x]]$endogenous_name)
+  )
+}) %>%
+  setNames(names(info_equations))
+
+graphiques_a <- lapply(names(info_equations),function(x) {
+  graph_contrib(
+    contrib_an[[x]],
+    date_debut_contribution_y,
+    date_fin_contribution_y,
+    "year",
+    paste0("Contributions annuelles : ",info_equations[[x]]$endogenous_name)
+  )
+})  %>%
+  setNames(.,names(info_equations))
+
+graphiques_q
+graphiques_a
+```
+
+Il est possible de regrouper des variables, telles que des indicatrices, avec l'argument `regroup_these` pour faciliter et améliorer la visualisation et les légendes. Voir notamment le [guide d'utilisation du modèle Opale](https://www.tresor.economie.gouv.fr/Content/other/Opale/manuel_opale_r.html).
+
+## Comparaison simulé/observé
+
+L'objectif est maintenant de comparer les données simulées avec les données observées des variables *endogènes* des équations économétriques. Ce type de graphique est très intéressant dans la phase expérimentale afin de déterminer la cohérence des spécifications. Nous avons mené des tests économétriques (`doc/Rapport_des_tests_econometriques.Rmd`), cependant la visualisation de l'écart entre la réalité et la modélisation permet de déceler directement la cohérence économique et économétrique du travail accompli. Toutefois, ce n'est pas parce que le simulé s'écarte de façon importante de la réalité que la modélisation est fausse. L'économie peut en effet subir des chocs non anticipable tels que la crise du covid. La modélisation économique n'a pas pour objectif de prédire la réalité mais de la simplifier afin d'en extraire un scenario probable.
+
+Comme précédemment, on utilise la fonction `simulate_equation()` en itérant avec `lapply` sur le nom des équations économétriques. Nous modifions le format de date qui pose encore ici problème pour la construction des graphiques.
+
+Nous pouvons ensuite construire les graphiques avec la fonction `graph_sim_obs` qui prend en argument :
+
+* `sim_obs_data` : les données obtenues avec `simulate_equation`
+* `start_plot ` : la date de début du graphique 
+* `end_plot ` : la date de fin du graphique
+* `index_time` : nom de la colonne qui contient l'index de temps
+* `title` : le titre du graphique
+* `type` : Le type de présentation de la variable, soit `g` pour visualiser la variable en taux de croissance, `lvl` en niveau, `d` en différence.
+
+```{r graphique comparaison simule observe} 
+
+#Paramétrage
+
+date_debut_simulation <- "2010-03-31"
+date_fin_simulation <- "2016-03-31"
+
+#Obtention des données simulées
+
+simul_data <- lapply(names(info_equations), function(x) {
+  y <- simulate_equation(
+    thor_equation = get(x),
+    database = dt_pf,
+    start_sim = as.Date(date_debut_estim),
+    end_sim = as.Date(date_fin_obs),
+    index_time = "date",
+    residual_var = info_equations[[x]]$residual_name
+  )
+})
+
+#Représentations graphiques
+
+lapply(1:length(info_equations), function(x) {
+  simul_data[[x]][["date"]] <<- as.Date(simul_data[[x]][["date"]])
+}) #Changement du format de date
+  
+lapply(1:length(info_equations), function(x) {
+  graph_sim_obs(
+    simul_data[[x]] ,
+    start_plot = as.Date(date_debut_simulation),
+    end_plot = as.Date(date_fin_simulation),
+    title = paste0(info_equations[[x]]$endogenous_name),
+    type = "g"
+  )
+})
+
+lapply(1:length(info_equations), function(x) {
+  graph_sim_obs(
+    simul_data[[x]] ,
+    title = paste0(info_equations[[x]]$endogenous_name),
+    start_plot = as.Date(date_debut_simulation),
+    end_plot = as.Date(date_fin_simulation),
+    type = "lvl"
+  )
+})
+```
+
+Il faut noter que les présentation graphique concernant les contribution des variables explicatives aux *endogènes* et les comparaisons simulées/observées ne peuvent être construite qu'à partir d'équations économétriques. Ceci peut poser problème pour la présentation du PIB mais il devrait être aisé de détourner ce problème en créant une fausse équation économétrique pour le PIB incluant des coefficients définit à 1 et les variations de stocks comme résidu de l'équation.
+
+## Les graphiques de visualisation de courbes rapides : quick_plot()
+
+La fonction quick_plot() permet visualiser rapidement plusieurs variables d’une même base de données, en niveau ou en taux de croissance.
+
+* `variables` : variables à tracer 
+* `database` : la base de données où trouver ces variables 
+* `start` et `end` : pour indiquer quand commence et termine le graphique
+* `index_time` : le nom de l’indicateur temporel de la base de données 
+* `growth_rate` : TRUE si on veut tracer les taux de croissance, sinon ce sera en niveau (par défaut FALSE)
+* `title` : le titre à donner au graphique
+* `colours` : un vecteur de couleurs pour personnaliser les couleurs des courbes. Il faut spécifier au minimum autant de couleurs que de variables, les couleurs en trop seront ignorées. Si un nombre insuffisant de couleurs est spécifié, les couleurs par défaut seront utilisées
+
+```{r graphiques de visualisation de courbes rapides}
+#Exemple avec la consommation et l'investussement des ménages
+
+prev[,"date"]<-as.Date(prev[,"date"])
+quick_plot(c("rdb_s14_v", "cf_s14"),
+           prev,
+           start = as.Date("2014-03-31"),
+           end = as.Date("2020-03-31"))
+```
+
+# Les grands travaux à venir 
+
+Travaux à venir par ordre d'importance:
+
+* Revoir les retraitements de données, la cohérence du cadre comptable et les problèmes précis comme l’investissement d’avions
+
+* Ajouter les observations des variables manquantes (variables en volume, RDB, …)
+
+* Revoir la cohérence économique des équations économétriques et du partage volume/prix dans le modèle et réaliser les tests économétriques avec les données arrêtées
+
+* Ajouter des variables (heures travaillées par emploi, taux de chômage, …) afin d’améliorer les spécifications des équations économétriques
+
+* Améliorer le modèle en désagrégeant les grands indicateurs (e.g. en dissociant les biens des services) 
+
+* Tester différents scénarios sur un exercice post mortem et vérifier la robustesse des équations
+
+* Faire essayer l’outil à un prévisionniste avec ses hypothèses pour les variables exogènes
+
+# Les étapes à valider dans le cas général
+
+* Avoir des données et un modèle qui permettent de rapprocher les simulations (qui sont établies avec les variables exogènes observé) de l’histoire économique
+
+* Etre capable de faire une prévision sur une période passée (sans crise non prévisible) qui colle avec la réalité avec des hypothèses tenables sur les variables exogènes et qui colle également avec le simulé.
+
+* Etre capable de faire une prévision sur le futur avec des données qui ne sont pas encore définitive (compte définitifs non disponibles sur les périodes récentes)
+
+# Comment modifier le programme
+
+Nous décrivons ici un seul processus mais d'autres pourraient y être ajoutés à l'avenir.
+
+## Ajout d'une nouvelle équation dans le modèle
+
+1^ère^étape : modifier le modèle en ajoutant l'équation (étape non obligatoire (pour rester cohérent avec le travail décrit) : ajouter l'équation à une ligne où elle est logiquement calculable par rapport aux lignes plus hautes), veiller à incorporer les nouvelles variables dans "endo" ou "exo" et "coeff" si l'équation en possède. Si c'est une équation économétrique à MCE, alors ne pas oublier de rajouter l'équations des résidus endogènes.
+
+2^ème^ étape : exécuter la fonction `create_model()` afin de s'assurer que l'équation a correctement été insérée dans le modèle. Attention : il faut enregistrer le fichier `.txt` pour effectivement créer le nouveau modèle. S'il il y a une erreur cela peut venir (liste non exhaustive) :
+
+* Le système d'équations ne possède pas autant de variable *endogènes* que d'équations : vérifier si dans l'équation intégrée il n'y a qu'une seule *endogène* qui est déterminée par l'équation.
+* Toutes les variables n'ont pas été classifiées correctement dans une des 3 catégories
+* Problème de syntaxe : se référer au [guide de l'utilisateur](https://www.tresor.economie.gouv.fr/Content/other/Opale/manuel_tresthor.html)
+
+3^ème^ étape : Inclure les données des nouvelles variables ajoutées dans dt_pf :
+
+* Si la variable est *exogène* : s'assurer de détenir les données nécessaire à son utilisation, i.e données complètes sur la période d'estimation si présente dans une équation économétrique pour l'estimation et la simulation et données complètes sur la dernière période avant prévision pour la prévision. Effectuer la trimestrialisation/CVS/CJO. Puis faire une hypothèse de scénario sur cette variable sur la période de prévision pour la prévision (possiblement en la classifiant dans une de nos deux catégories)
+* Si la variable est *hybride* : s'assurer de détenir les données nécessaire à son utilisation, i.e données complètes sur la période d'estimation et simulation et données complètes sur la dernière période avant prévision pour la prévision. Effectuer la trimestrialisation/CVS/CJO.
+* Si la variable est *endogène* : détenir les données nécessaires à son utilisation ou les initialiser dans l'étape d'"Initialisation". Si la variable est dans le membre de droit d'une équation économétrique alors obtenir les données de cette variable sur toute la période d'estimation et de simulation. De plus, dans tous les cas, obtenir les données sur la dernière période avant prévision pour la prévision.
+
+4^ème^ étape :
+
+* Si c'est une équation comptable : inclure l'équation dans l'étape d'initialisation de la façon appropriée si cela est nécéssaire
+* Si c'est une équation économétrique : ajouter les informations nécessaires dans `info_equations`
+
+# Principales erreurs rencontrées lors de l'éxécution
+
+* `Error in while (sum(abs(x_n1 - x_n) > c(rep(epsilon, length(x_n)))) >  : missing value where TRUE/FALSE needed` : l'origine de cette erreur est très compliqué à sourcer. Elle est majoritairement la conséquence d'un problème dans l'étape d'initialisation. Par exemple, cette erreur peut survenir si les données d'une des variable créées dans l'étape d'initialisation ne sont pas à la bonne échelle.
+
+Un point important à souligner est de veiller à exécuter l'ensemble du programme après avoir nettoyer intégralement l'environnement après chaque modification majeure. Il est beaucoup plus facile de sourcer un problème (qui peut survenir sur une partie du code totalement différente de celle modifiée) quand on connait la modification qui a entraîner l'erreur. L'utilisation d'un contrôle de version permet bien sûr également de veiller à maintenir le programme toujours utilisable.
+
+# A faire
+
+
+Problèmes .Rmd :
+
+Comment, dans le menu déroulant n'afficher que les grand titres, puis les plus petit en passant la souris dessus? comme dans les html de la DG
+Comment faire référerence à d'autres parties du rapport avec un lien?
+Il y a t'il des codes permettant de créer un dictionnaire?
+
+</div>

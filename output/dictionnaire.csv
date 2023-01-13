@@ -1,0 +1,192 @@
+Variable,Label
+af_eq_cf_s14,Résidus endogène de l'équation économétrique eq_cf_s14
+af_eq_emploi,Résidus endogène de l'équation économétrique eq_emploi
+af_eq_fbcf_s11,Résidus endogène de l'équation économétrique eq_fbcf_s11
+af_eq_fbcf_s14,Résidus endogène de l'équation économétrique eq_fbcf_s14
+af_eq_ipc_alim,Résidus endogène de l'équation économétrique eq_ipc_alim
+af_eq_ipc_nrj,Résidus endogène de l'équation économétrique eq_ipc_nrj
+af_eq_ipc_tot,Résidus endogène de l'équation économétrique eq_ipc_tot
+af_eq_m,Résidus endogène de l'équation économétrique eq_m
+af_eq_rdb_s14_v,Résidus endogène de l'équation économétrique eq_rdb_s14_v
+af_eq_smpt_s11,Résidus endogène de l'équation économétrique eq_smpt_s11
+afusr_eq_cf_s14,Résidus exogène de l'équation économétrique eq_cf_s14
+afusr_eq_emploi,Résidus exogène de l'équation économétrique eq_emploi
+afusr_eq_fbcf_s11,Résidus exogène de l'équation économétrique eq_fbcf_s11
+afusr_eq_fbcf_s14,Résidus exogène de l'équation économétrique eq_fbcf_s14
+afusr_eq_ipc_alim,Résidus exogène de l'équation économétrique eq_ipc_alim
+afusr_eq_ipc_nrj,Résidus exogène de l'équation économétrique eq_ipc_nrj
+afusr_eq_ipc_tot,Résidus exogène de l'équation économétrique eq_ipc_tot
+afusr_eq_m,Résidus exogène de l'équation économétrique eq_m
+afusr_eq_rdb_s14_v,Résidus exogène de l'équation économétrique eq_rdb_s14_v
+afusr_eq_smpt_s11,Résidus exogène de l'équation économétrique eq_smpt_s11
+brent,"Référence de prix pour le pétrole d'Europe, d'Afrique et du Moyen-Orient  "
+cf,Consommation finale  
+cf_s13,Consommation finale des administrations 
+cf_s13_v,Consommation finale des administrations en valeur
+cf_s14,Consommation finale des ménages 
+cf_s14_v,Consommation finale des ménages en valeur
+cf_v,Consommation finale en valeur 
+ch_pat,Charge patronale  
+ch_sal,Charge salariale  
+civils,Nombre d'employés civil  
+conso_elek_bt,Consommation d'électricité des entreprises  
+conso_elek_mt,Consommation d'électricité des ménages  
+cont_cf,Contribution au PIB de la consommation 
+cont_cf_s13,Contribution au PIB de la consommation des administrations
+cont_cf_s14,Contribution au PIB de la consommation des ménages
+cont_df,Contribution au PIB de la demande finale 
+cont_di,Contribution au PIB de la demande intérieure 
+cont_dihs,Contribution au PIB de la demande intérieure hors stock 
+cont_fbcf,Contribution au PIB de la formation brut de capital fixe 
+cont_fbcf_s11,Contribution au PIB de la formation brut de capital fixe des entreprises
+cont_fbcf_s13,Contribution au PIB de la formation brut de capital fixe des administrations
+cont_fbcf_s14,Contribution au PIB de la formation brut de capital fixe des ménages
+cont_m,Contribution au PIB des importations 
+cont_vs,Contribution au PIB des variations de stock 
+cont_x,Contribution au PIB des exportations 
+cont_xm,Contribution au PIB des exportations et des importations 
+cst,Contribution de solidarité territoriale  
+csu_s11,Coût salariale unitaire moyen des entreprises 
+date,Dernier jour du trimestre pendant lequel sont issues les données  
+dÃ©fense,Nombre d'employés militaires  
+df,Demande finale  
+df_v,Demande finale en valeur 
+dfl_cf_s13,Déflateur de la consommation des administrations
+dfl_cf_s14,Déflateur de la consommation des ménages
+dfl_fbcf_s11,Déflateur de la formation brut de capital fixe des entreprises
+dfl_fbcf_s13,Déflateur de la formation brut de capital fixe des administrations
+dfl_fbcf_s14,Déflateur de la formation brut de capital fixe des ménages
+dfl_m,Déflateur des importations 
+dfl_pib,Déflateur  
+dfl_x,Déflateur des exportations 
+di,Femande intérieure  
+di_v,Femande intérieure en valeur 
+dihs,Femande intérieure hors stocks  
+dihs_v,Femande intérieure hors stocks en valeur 
+dt_pib,Taux de croissance du PIB réel  
+dummy_18_q1,Indicatrice de l'année 2018 au premier trimestre
+dummy_18_q2,Indicatrice de l'année 2018 au deuxième trimestre
+dummy_18_q3,Indicatrice de l'année 2018 au troisième trimestre
+dummy_18_q4,Indicatrice de l'année 2018 au quatrième trimestre
+dummy_avion,Indicatrice de l'achat d'avion  
+dummy_crise_fi,Indicatrice de la crise financière  
+eff_sal_etp,Nombre de salarié en équivalent temps plein  
+emploi,Nombre total d'emploi  
+epargne,Epargne totale  
+essence,Prix de l'essence  
+fbcf,Formation brut de capital fixe  
+fbcf_s11,Formation brut de capital fixe des entreprises 
+fbcf_s11_v,Formation brut de capital fixe des entreprises en valeur
+fbcf_s13,Formation brut de capital fixe des administrations 
+fbcf_s13_v,Formation brut de capital fixe des administrations en valeur
+fbcf_s14,Formation brut de capital fixe des ménages 
+fbcf_s14_v,Formation brut de capital fixe des ménages en valeur
+fbcf_v,Formation brut de capital fixe en valeur 
+h_trav,Nombre d'heures travaillées totales  
+i_esm_commerce,Indice de l'emploi salarié marchand dans le secteur du commerce  
+i_esm_construction,Indice de l'emploi salarié marchand dans le secteur du construction  
+i_esm_hÃ´tellerierestauration,Indice de l'emploi salarié marchand dans le secteur de l'hôtellerie/restauration  
+i_esm_industrie,Indice de l'emploi salarié marchand dans le secteur de l'industrie  
+i_esm_secteurmarchand,Indice de l'emploi salarié marchand dans le secteur marchand  
+i_esm_services,Indice de l'emploi salarié marchand dans le secteur des services  
+ind_btp,Indice du secteur du btp  
+ipc_alim,Indice des prix à la consommation de l'alimentation 
+ipc_elekt_0451,Indice des prix à la consommation de l'électricité 
+ipc_h_taba,Indice des prix à la consommation du tabac 
+ipc_h_tabac,Indice des prix à la consommation du tabac 
+ipc_inf_sj,Indice des prix à la consommation sous-jacent 
+ipc_nrj,Indice des prix à la consommation de l'énergie 
+ipc_tot,Indice des prix à la consommation total 
+ipc_tot_vt,Indice des prix à la consommation total en taux de croissance
+m,Importations  
+m_b_v,Importations des biens en valeur
+m_s_v,Importations des services en valeur
+m_v,Importations en valeur 
+msalb,Masse salariale  
+nbr_sal,Nombre totale de salariés  
+pa,Pouvoir d'achat  
+pertu,Pertubation aléatoire (pour la phase expérimentale)  
+petrole,Prix du pétole en Polynésie  
+pib,Produit intérieur brut  
+pib_v,Produit intérieur brut en valeur 
+pmc,Propension marginale à consommer  
+productivite,Taux de productivite (Richesse crée par emploi)  
+px_immo,Indice de prix de l'immobilier en nominal  
+rdb_s14_v,Revenu disponible brut des ménages en valeur
+rs_s11_v,Revenu salarié des entreprises en valeur
+rs_s13_v,Revenu salarié des administrations en valeur
+rs_v,Revenu salarié en valeur 
+salaire,Salaire (calculé à partir de la différence de msalb et les cotisations et la cst)  
+smpt_s11,Salarie moyen par tête des entreprises 
+tcen,Taux de change en nominal  
+tendance,Vecteur allant de 1 au nombre de trimestre total  
+total,Nombre d'emploi total  
+tx_epargne,Taux d'épargne (revenu disponible brut moins la consommation des ménages)  
+tx_inv,Taux d'investissement relativement au PIB  
+tx_marge_macro,Excédent brut d'exploitation relativement au PIB  
+va_v,Valeur ajoutée en valeur 
+vs_v,Variation de stock en valeur 
+x,Exports  
+x_b_v,Exports des biens en valeur
+x_s_v,Exports des services en valeur
+x_v,Exports en valeur 
+a_lt1,Coefficient de l'équation de l'indice des prix à l'alimentation  
+a_lt2,Coefficient de l'équation de l'indice des prix à l'alimentation  
+a_cst,Coefficient de l'équation de l'indice des prix à l'alimentation  
+a_0,Coefficient de l'équation de l'indice des prix à l'alimentation  
+a_1,Coefficient de l'équation de l'indice des prix à l'alimentation  
+b_lt1,Coefficient de l'équation de l'indice des prix à l'énergie  
+b_lt2,Coefficient de l'équation de l'indice des prix à l'énergie  
+b_cst,Coefficient de l'équation de l'indice des prix à l'énergie  
+b_0,Coefficient de l'équation de l'indice des prix à l'énergie  
+b_1,Coefficient de l'équation de l'indice des prix à l'énergie  
+c_lt1,Coefficient de l'équation de l'indice des prix total  
+c_lt2,Coefficient de l'équation de l'indice des prix total  
+c_cst,Coefficient de l'équation de l'indice des prix total  
+c_0,Coefficient de l'équation de l'indice des prix total  
+c_1,Coefficient de l'équation de l'indice des prix total  
+c_2,Coefficient de l'équation de l'indice des prix total  
+d_lt1,Coefficient de l'équation de l'emploi  
+d_lt2,Coefficient de l'équation de l'emploi  
+d_lt3,Coefficient de l'équation de l'emploi  
+d_cst,Coefficient de l'équation de l'emploi  
+d_0,Coefficient de l'équation de l'emploi  
+d_1,Coefficient de l'équation de l'emploi  
+d_2,Coefficient de l'équation de l'emploi  
+e_lt1,Coefficient de l'équation du revenu disponible brut  
+e_lt2,Coefficient de l'équation du revenu disponible brut  
+e_cst,Coefficient de l'équation du revenu disponible brut  
+e_0,Coefficient de l'équation du revenu disponible brut  
+e_1,Coefficient de l'équation du revenu disponible brut  
+e_2,Coefficient de l'équation du revenu disponible brut  
+f_lt1,Coefficient de l'équation des importations  
+f_lt2,Coefficient de l'équation des importations  
+f_cst,Coefficient de l'équation des importations  
+f_0,Coefficient de l'équation des importations  
+f_1,Coefficient de l'équation des importations  
+f_2,Coefficient de l'équation des importations  
+g_lt1,Coefficient de l'équation de l'investissement des ménages  
+g_lt2,Coefficient de l'équation de l'investissement des ménages  
+g_lt3,Coefficient de l'équation de l'investissement des ménages  
+g_cst,Coefficient de l'équation de l'investissement des ménages  
+g_0,Coefficient de l'équation de l'investissement des ménages  
+h_lt1,Coefficient de l'équation du salaire moyen par tête  
+h_lt2,Coefficient de l'équation du salaire moyen par tête  
+h_lt3,Coefficient de l'équation du salaire moyen par tête  
+h_cst,Coefficient de l'équation du salaire moyen par tête  
+h_0,Coefficient de l'équation du salaire moyen par tête  
+h_1,Coefficient de l'équation du salaire moyen par tête  
+h_2,Coefficient de l'équation du salaire moyen par tête  
+i_lt1,Coefficient de l'équation de la consommation des ménages  
+i_lt2,Coefficient de l'équation de la consommation des ménages  
+i_cst,Coefficient de l'équation de la consommation des ménages  
+i_0,Coefficient de l'équation de la consommation des ménages  
+i_1,Coefficient de l'équation de la consommation des ménages  
+i_2,Coefficient de l'équation de la consommation des ménages  
+i_3,Coefficient de l'équation de la consommation des ménages  
+j_lt1,Coefficient de l'équation de l'investissement des entreprises  
+j_lt2,Coefficient de l'équation de l'investissement des entreprises  
+j_cst,Coefficient de l'équation de l'investissement des entreprises  
+j_0,Coefficient de l'équation de l'investissement des entreprises  
+j_1,Coefficient de l'équation de l'investissement des entreprises  
+j_2,Coefficient de l'équation de l'investissement des entreprises  
